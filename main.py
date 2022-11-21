@@ -7,6 +7,7 @@ import shutil
 import time
 import torch
 import torchvision.utils
+from datetime import datetime
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
@@ -14,7 +15,6 @@ from torchsummary import summary
 from torchvision import transforms
 from torchviz import make_dot
 from tqdm import tqdm
-from datetime import datetime
 
 
 class FaceDataset(Dataset):

@@ -21,11 +21,13 @@ This codebase is for solving the [Kaggle Challenges in Representation Learning: 
       1. It is recommended you visit [PyTorch's get started page](https://pytorch.org/get-started/locally "PyTorch Get Started") which will allow you to select to install CUDA support if you have an Nvidia GPU. This will give you a command you can copy and run to install PyTorch, TorchVision, and TorchAudio, but feel free to remove TorchAudio from the command as it is not needed. Check which version of CUDA your Nvidia GPU supports.
       2. When running the script, a message will be output to the console if it is using CUDA.
    2. The remaining packages can be installed via "pip *package*" in the console:
-      1. [shutil](https://docs.python.org/3/library/shutil.html "shutil")
-      2. [tensorboard](https://pypi.org/project/tensorboard "tensorboard")
-      3. [torchsummary](https://pypi.org/project/torchsummary "torchsummary")
-      4. [torchviz](https://pypi.org/project/torchviz "torchviz")
-      5. [tqdm](https://github.com/tqdm/tqdm "tqdm")
+      1. [numpy](https://numpy.org "numpy")
+      2. [pandas](https://pandas.pydata.org "pandas")
+      3. [shutil](https://docs.python.org/3/library/shutil.html "shutil")
+      4. [tensorboard](https://pypi.org/project/tensorboard "tensorboard")
+      5. [torchsummary](https://pypi.org/project/torchsummary "torchsummary")
+      6. [torchviz](https://pypi.org/project/torchviz "torchviz")
+      7. [tqdm](https://github.com/tqdm/tqdm "tqdm")
 3. Install [Graphviz](https://graphviz.org "Graphviz") so the Python script can generate a graph of neural networks.
 
 ## Download Dataset
