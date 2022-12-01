@@ -58,7 +58,7 @@ This codebase is for solving the [Kaggle Challenges in Representation Learning: 
 6. Once done, the model:
    1. Will be saved with the name as it given in the "Models" folder.
    2. Architecture will be saved as a graph in the "Graphs" folder.
-   3. Parameters and accuracy will be saved with the same model name in the "ModelParameters" folder.
+   3. Parameters and accuracy will be saved with the same model name in the "Parameters" folder.
    4. TensorBoard data will be saved in the "runs" folder.
    - Note if this run produced a worse accuracy than a previous run which had the same name, it will not be saved to preserve the best model.
 
