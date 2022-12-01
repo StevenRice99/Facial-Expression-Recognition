@@ -181,7 +181,7 @@ def test(model, batch: int, dataloader):
     Test a neural network.
     :param model: The neural network.
     :param batch: The batch size.
-    :param dataloader: The dataloader which should be of the test dataset.
+    :param dataloader: The dataloader to test.
     :return: The model's accuracy.
     """
     # Count how many are correct.
@@ -195,24 +195,35 @@ def test(model, batch: int, dataloader):
     return correct / (len(dataloader) * batch) * 100
 
 
-def parameter_text_generator(accuracy):
-    # Create text file to store parameter data.
-    f = open(f"{os.getcwd()}/ModelParameters/" + a["name"] + ".txt", "w")
-    # Write parameters to text file
-    f.write("Accuracy Rate & Device: " + str(accuracy) + "\n" +
-            "Name of the model: " + str(a["name"]) + "\n" +
-            "Number of training epochs: " + str(a["epoch"]) + "\n" +
-            "Training and testing batch size: " + str(a["batch"]) + "\n" +
-            "Minimum rescaling size of training data: " + str(a["min"]) + "\n" +
-            "Maximum rescaling size of training data: " + str(a["max"]) + "\n" +
-            "Maximum rotation of training data: " + str(a["rot"]) + "\n")
-    # Timestamp for text file.
-    f.write(str(datetime.now()) + "\n")
-    # Writes whether the model was loaded or not to text file.
-    if a["load"]:
-        f.write("\n Name of Model Loaded : " + str(a["load"]))
-    else:
-        f.write("Model is an original.")
+def parameter_text_generator(train_accuracy: float, accuracy: float, inference_time: float, trainable_parameters: int, name: str, epochs: int, batch: int, mini: float, maxi: float, rot: float):
+    """
+    Create text file to store parameter data.
+    :param train_accuracy: The training accuracy.
+    :param accuracy: The testing accuracy.
+    :param inference_time: The average inference time.
+    :param trainable_parameters: The trainable parameters.
+    :param name: The name of the model.
+    :param epochs: The training epochs.
+    :param batch: The batch size.
+    :param mini: The minimum rescaling size of training data.
+    :param maxi: The maximum rescaling size of training data.
+    :param rot: The maximum rotation of training data.
+    :return:
+    """
+    # Ensure Folder to save parameters exists
+    if not os.path.exists(f"{os.getcwd()}/ModelParameters"):
+        os.mkdir(f"{os.getcwd()}/ModelParameters")
+    f = open(f"{os.getcwd()}/ModelParameters/{name}.txt", "w")
+    f.write(f"Name: {name}\n"
+            f"Training Accuracy: {train_accuracy}\n"
+            f"Testing Accuracy: {accuracy}\n"
+            f"Average Inference Time: {inference_time} ms\n"
+            f"Trainable Parameters: {trainable_parameters}\n"
+            f"Epochs: {epochs}\n"
+            f"Batch Size: {batch}\n"
+            f"Minimum rescaling size of training data: {mini}\n"
+            f"Maximum rescaling size of training data: {maxi}\n"
+            f"Maximum rotation of training data: {rot}")
     f.close()
 
 
@@ -256,6 +267,9 @@ def main(name: str, epochs: int, batch: int, load: bool, mini: float, maxi: floa
     print(f"Running on GPU with CUDA {torch.version.cuda}." if torch.cuda.is_available() else "Running on CPU.")
     # Setup datasets.
     print("Loading data...")
+    if not os.path.exists(f"{os.getcwd()}/Data.csv"):
+        print("Data.csv missing.")
+        return
     df = pandas.read_csv(f"{os.getcwd()}/Data.csv")
     train_images, train_labels = prepare_data(df[df['Usage'] == 'Training'])
     test_images, test_labels = prepare_data(df[df['Usage'] != 'Training'])
@@ -273,18 +287,20 @@ def main(name: str, epochs: int, batch: int, load: bool, mini: float, maxi: floa
         if load:
             # If a model does not exist to load decide to generate a new model instead.
             if not os.path.exists(f"{os.getcwd()}/Models/{name}.pt"):
-                print(f"Model '{name}.pt' does not exist to load, will build new model instead.")
-            else:
-                try:
-                    print(f"Loading '{name}'...")
-                    model = NeuralNetwork()
-                    model.load_state_dict(torch.load(f"{os.getcwd()}/Models/{name}.pt"))
-                    print(f"Loaded '{name}'.")
-                    no_model = False
-                except:
-                    print("Model to load has different structure than 'model_builder'.py, cannot load, building new model.")
+                print(f"Model '{name}.pt' does not exist to load.")
+                return
+            try:
+                print(f"Loading '{name}'...")
+                model = NeuralNetwork()
+                model.load_state_dict(torch.load(f"{os.getcwd()}/Models/{name}.pt"))
+                print(f"Loaded '{name}'.")
+                no_model = False
+            except:
+                print("Model to load has different structure than 'model_builder'.py, cannot load.")
+                return
         if no_model:
             model = NeuralNetwork()
+        summary(model, input_size=(1, 48, 48))
         dataloader = DataLoader(training_data, batch_size=batch, shuffle=True)
         # Generate a sample image of the training data.
         data_image(dataloader, writer, 'Training Sample')
@@ -301,6 +317,7 @@ def main(name: str, epochs: int, batch: int, load: bool, mini: float, maxi: floa
                     loss += model.optimize(image, label)
                 writer.add_scalar('Training Loss', loss / len(dataloader), epoch)
             print(f"Training '{name}' complete - Final loss = {loss / len(dataloader):.4}")
+        train_accuracy = test(model, batch, dataloader)
         dataloader = DataLoader(testing_data, batch_size=batch, shuffle=True)
         # Generate a sample image of the testing data.
         data_image(dataloader, writer, 'Testing Sample')
@@ -311,8 +328,8 @@ def main(name: str, epochs: int, batch: int, load: bool, mini: float, maxi: floa
         inference_time = ((end - start) / testing_total) / 1e+6
         writer.add_text(f"Accuracy", f"{accuracy}%")
         writer.add_text(f"Average Inference Time", f"{inference_time} ms")
-        summary(model, input_size=(1, 48, 48))
-        print(f"Accuracy = {accuracy}%")
+        print(f"Training Accuracy = {train_accuracy}%")
+        print(f"Testing Accuracy = {accuracy}%")
         print(f"Average Inference Time: {inference_time} ms")
         # Ensure folder to save models exists.
         if not os.path.exists(f"{os.getcwd()}/Models"):
@@ -334,7 +351,7 @@ def main(name: str, epochs: int, batch: int, load: bool, mini: float, maxi: floa
                 print(
                     f"Existing '{name}.pt' has worse accuracy score of {existing_accuracy}%, overwriting with new model.")
             except:
-                print("Model to load has different structure 'model_builder'.py, cannot load, will save the new model.")
+                print("Model to load has different structure 'model_builder'.py, cannot load, saving new model.")
         # Save the model.
         torch.save(model.state_dict(), f"{os.getcwd()}/Models/{name}.pt")
         # Create a graph of the model.
@@ -356,11 +373,9 @@ def main(name: str, epochs: int, batch: int, load: bool, mini: float, maxi: floa
         if os.path.exists(f"{os.getcwd()}/runs/{name}"):
             shutil.rmtree(f"{os.getcwd()}/runs/{name}")
         os.rename(f"{os.getcwd()}/runs/Current", f"{os.getcwd()}/runs/{name}")
-        # Ensure Folder to save parameters exists
-        if not os.path.exists(f"{os.getcwd()}/ModelParameters"):
-            os.mkdir(f"{os.getcwd()}/ModelParameters")
         # Save model parameters and accuracy.
-        parameter_text_generator({accuracy})
+        trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        parameter_text_generator(train_accuracy, accuracy, inference_time, trainable_parameters, name, epochs, batch, mini, maxi, rot)
 
 
 if __name__ == '__main__':

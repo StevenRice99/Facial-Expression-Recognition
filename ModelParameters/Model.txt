@@ -1,9 +1,0 @@
-Accuracy Rate & Device: {tensor(56.3053, device='cuda:0')}
-Name of the model: Model
-Number of training epochs: 10
-Training and testing batch size: 64
-Minimum rescaling size of training data: 1
-Maximum rescaling size of training data: 1
-Maximum rotation of training data: 0
-2022-11-20 20:24:54.205745
-Model is an original.
