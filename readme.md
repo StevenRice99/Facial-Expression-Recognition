@@ -51,16 +51,12 @@ This codebase is for solving the [Kaggle Challenges in Representation Learning: 
    2. -e, --epoch - Number of training epochs. Defaults to 10.
    3. -b, --batch - Training and testing batch size. Defaults to 64.
    4. -l, --load - Load the model with the given name and test it.
-   5. -a, --attempts - The amount of times to try the training. Default to 1.
-   6. --min - Minimum rescaling size of training data. Defaults to 0.
-   7. --max - Maximum rescaling size of training data. Defaults to 0.
-   8. -r, --rot - Maximum rotation of training data. Defaults to 0.
-6. Once done, the model:
-   1. Will be saved with the name as it given in the "Models" folder.
-   2. Architecture will be saved as a graph in the "Graphs" folder.
-   3. Parameters and accuracy will be saved with the same model name in the "Parameters" folder.
-   4. TensorBoard data will be saved in the "runs" folder.
-   - Note if this run produced a worse accuracy than a previous run which had the same name, it will not be saved to preserve the best model.
+   5. -s, --standard - Keep training data standard and apply no transformations.
+6. Once done, a folder with the given name can be found in the "Models" folder which contains the following:
+   1. "Network.pt" which contains the best weights and bias saved which can be loaded for inference.
+   2. "Graph.png" which displays the network architecture.
+   3. "Details.txt" which contains an overview of the model/. 
+7. TensorBoard data will be saved in the "runs" folder.
 
 # Limitations
 

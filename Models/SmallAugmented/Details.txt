@@ -1,0 +1,7 @@
+Training Accuracy: 51.55902099609375
+Testing Accuracy: 56.014930725097656
+Average Inference Time: 0.03604258846475341 ms
+Trainable Parameters: 447815
+Best Epoch: 97
+Batch Size: 64
+Augmented: False

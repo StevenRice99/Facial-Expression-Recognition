@@ -8,7 +8,7 @@ def define_layers():
     Convolutional Size =  (Size - Kernel + 2 * Padding) / Stride + 1
     Pooling Size =        (Size + 2 * Padding - Kernel) / Stride + 1
     Flatten Size =        Last Convolutional Out Channels * Size^2
-    :return: A sequential layer structure which has a 48x48 starting input layer and a 7 final output layer.
+    :return: A sequential layer structure which has a 48x48 single channel starting input layer and a 7 final output layer.
     """
     return small_network()
     #return large_network()
@@ -64,7 +64,7 @@ def small_network():
 def large_network():
     """
     Similar to the "Small" network, testing to see if simply increasing initial network input for more convolutional layers will improve accuracy.
-    :return:
+    :return: A larger CNN.
     """
     return nn.Sequential(
         nn.AdaptiveAvgPool2d(192),

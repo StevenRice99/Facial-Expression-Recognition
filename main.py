@@ -1,13 +1,12 @@
 import argparse
-import model_builder
-import numpy
 import os
-import pandas
 import shutil
 import time
+
+import numpy
+import pandas
 import torch
 import torchvision.utils
-from datetime import datetime
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
@@ -16,49 +15,41 @@ from torchvision import transforms
 from torchviz import make_dot
 from tqdm import tqdm
 
+import model_builder
+
 
 class FaceDataset(Dataset):
     """
     The datasets built from the CSV data.
     """
 
-    def __init__(self, images, labels, mini=1, maxi=1, rot=0):
+    def __init__(self, images, labels, augment: bool = False):
         """
         Create the dataset.
         :param images: The images parsed from the CSV.
         :param labels: The labels parsed from the CSV.
-        :param mini: Minimum rescaling size of training data.
-        :param maxi: Maximum rescaling size of training data.
-        :param rot: Maximum rotation of training data.
+        :param augment: True to augment data augmented, false otherwise.
         """
         self.images = torch.tensor(images, dtype=torch.float32)
         # Rearrange axis, so they are in proper input order and appear visually upright.
         self.images = torch.swapaxes(self.images, 1, 3)
         self.images = torch.swapaxes(self.images, 2, 3)
         self.labels = torch.tensor(labels, dtype=torch.int)
-        # If no transformations needed, don't apply to save iteration time later.
-        if mini == 1 and maxi == 1 and rot == 0:
-            self.transform = None
-            return
-        # Only apply required transformations.
-        if mini == 1 and maxi == 1:
+        if augment:
             self.transform = transforms.Compose([
+                # Randomly flip the image.
+                transforms.RandomHorizontalFlip(),
+                # Randomly adjust pixel values.
+                transforms.ColorJitter(brightness=0.5, contrast=0.3, hue=0.3, saturation=0.3),
                 # Randomly rotate the training data to add more variety.
-                transforms.RandomRotation(rot)
-            ])
-            return
-        if rot == 0:
-            self.transform = transforms.Compose([
+                transforms.RandomRotation(45),
+                # Randomly adjust image perspective.
+                transforms.RandomPerspective(),
                 # Randomly zoom in on training data to add more variety.
-                transforms.RandomResizedCrop(48, (mini, maxi))
+                transforms.RandomResizedCrop(48, (0.7, 1))
             ])
-            return
-        self.transform = transforms.Compose([
-            # Randomly zoom in on training data to add more variety.
-            transforms.RandomResizedCrop(48, (mini, maxi)),
-            # Randomly rotate the training data to add more variety.
-            transforms.RandomRotation(rot)
-        ])
+        else:
+            self.transform = None
 
     def __len__(self):
         """
@@ -219,173 +210,168 @@ def accuracy_check(model, batch: int, dataloader, best_accuracy: float, name: st
     accuracy = test(model, batch, dataloader)
     if accuracy > best_accuracy:
         # Save the model.
-        torch.save(model.state_dict(), f"{os.getcwd()}/Models/{name}.pt")
+        if not os.path.exists(f"{os.getcwd()}/Models/{name}"):
+            os.mkdir(f"{os.getcwd()}/Models/{name}")
+        torch.save(model.state_dict(), f"{os.getcwd()}/Models/{name}/Network.pt")
     return accuracy
 
 
-def main(name: str, epochs: int, batch: int, load: bool, mini: float, maxi: float, rot: float, att: int):
+def main(name: str, epochs: int, batch: int, load: bool, augment: bool):
     """
     Main program execution.
     :param name: The name of the model to save files under.
     :param epochs: The number of training epochs.
     :param batch: The batch size.
     :param load: Whether to load an existing model or train a new one.
-    :param mini: The minimum random scaling of the training dataset.
-    :param maxi: The maximum random scaling of the training dataset.
-    :param rot: The maximum random rotation of the training dataset.
-    :param att: The amount of times to try the training.
+    :param augment: Whether training data should be augmented or not.
     :return: Nothing.
     """
     print(f"Face Expression Recognition Deep Learning\nRun 'tensorboard --logdir=runs' in '{os.getcwd()}' to see data.")
     if name == "Current":
-        print("Cannot name the model 'Current' as that name is used for the current TensorBoard run.")
+        print("Cannot name the model 'Current' as that name is used for the current TensorBoard run and will get overwritten.")
         return
     print(f"Running on GPU with CUDA {torch.version.cuda}." if torch.cuda.is_available() else "Running on CPU.")
     # Setup datasets.
     print("Loading data...")
     if not os.path.exists(f"{os.getcwd()}/Data.csv"):
-        print("Data.csv missing.")
+        print("Data.csv missing, visit https://github.com/StevenRice99/COMP-4730-Project-2#download-dataset for instructions.")
         return
     df = pandas.read_csv(f"{os.getcwd()}/Data.csv")
     train_images, train_labels = prepare_data(df[df['Usage'] == 'Training'])
     test_images, test_labels = prepare_data(df[df['Usage'] != 'Training'])
-    training_data = FaceDataset(train_images, train_labels, mini, maxi, rot)
+    training_data = FaceDataset(train_images, train_labels, augment)
     testing_data = FaceDataset(test_images, test_labels)
     training_total = dataset_details("Training", train_labels)
     testing_total = dataset_details("Testing", test_labels)
-    if load or att < 1:
-        att = 1
-    if epochs < 1:
-        epochs = 1
-    for attempt in range(0, att):
-        if load:
-            # If a model does not exist to load decide to generate a new model instead.
-            if not os.path.exists(f"{os.getcwd()}/Models/{name}.pt"):
-                print(f"Model '{name}.pt' does not exist to load.")
-                return
+    # Setup dataloaders.
+    training = DataLoader(training_data, batch_size=batch, shuffle=True)
+    testing = DataLoader(testing_data, batch_size=batch, shuffle=True)
+    if load:
+        # If a model does not exist to load decide to generate a new model instead.
+        if not os.path.exists(f"{os.getcwd()}/Models/{name}/Network.pt"):
+            print(f"Model '{name}' does not exist to load.")
+            return
+        try:
+            print(f"Loading '{name}'...")
+            model = NeuralNetwork()
+            model.load_state_dict(torch.load(f"{os.getcwd()}/Models/{name}/Network.pt"))
+            print(f"Loaded '{name}'.")
+        except:
+            print("Model to load has different structure than 'model_builder'.py, cannot load.")
+            return
+    else:
+        model = NeuralNetwork()
+    summary(model, input_size=(1, 48, 48))
+    if not load:
+        best_epoch = -2
+        best_accuracy = 0
+        # Ensure folder to save models exists.
+        if augment:
+            print("Training data has been augmented.")
+        else:
+            print("Training data has not been augmented.")
+        if not os.path.exists(f"{os.getcwd()}/Models"):
+            os.mkdir(f"{os.getcwd()}/Models")
+        # Check if an existing model of the same name exists.
+        if os.path.exists(f"{os.getcwd()}/Models/{name}/Network.pt"):
+            print(f"Model '{name}' already exists, checking its accuracy for comparison...")
             try:
-                print(f"Loading '{name}'...")
-                model = NeuralNetwork()
-                model.load_state_dict(torch.load(f"{os.getcwd()}/Models/{name}.pt"))
-                print(f"Loaded '{name}'.")
+                existing = NeuralNetwork()
+                existing.load_state_dict(torch.load(f"{os.getcwd()}/Models/{name}/Network.pt"))
+                best_accuracy = test(existing, batch, testing)
+                print(
+                    f"Existing '{name}' has accuracy of {best_accuracy:.4}%, will only save if better achieved.")
             except:
-                print("Model to load has different structure than 'model_builder'.py, cannot load.")
+                print(f"Existing '{name}' has different structure than 'model_builder'.py, cannot compare.")
                 return
         else:
-            model = NeuralNetwork()
-        if attempt == 0:
-            summary(model, input_size=(1, 48, 48))
-            # Setup dataloaders.
-            training = DataLoader(training_data, batch_size=batch, shuffle=True)
-            testing = DataLoader(testing_data, batch_size=batch, shuffle=True)
-        if not load:
-            best_epoch = -2
-            if attempt == 0:
-                best_accuracy = 0
-                # Ensure folder to save models exists.
-                if not os.path.exists(f"{os.getcwd()}/Models"):
-                    os.mkdir(f"{os.getcwd()}/Models")
-                # Check if an existing model of the same name exists.
-                if os.path.exists(f"{os.getcwd()}/Models/{name}.pt"):
-                    print(f"Model '{name}.pt' already exists, checking its accuracy for comparison...")
-                    try:
-                        existing = NeuralNetwork()
-                        existing.load_state_dict(torch.load(f"{os.getcwd()}/Models/{name}.pt"))
-                        best_accuracy = test(existing, batch, testing)
-                        print(f"Existing '{name}.pt' has accuracy of {best_accuracy:.4}%, will only save if better achieved.")
-                    except:
-                        print(f"Existing '{name}.pt' has different structure than 'model_builder'.py, cannot compare.")
-                        return
-            # Setup TensorBoard writer.
-            writer = SummaryWriter("runs/Current")
-            if att > 1:
-                print(f"Training attempt {attempt + 1} of {att}.")
-            # Train if we are building a new model, this is skipped if a model was loaded.
-            print(f"Training '{name}' for {epochs} epochs with batch size {batch}...")
-            # Train for the set number of epochs
+            print(f"No existing saved model with name '{name}' to compare against.")
+        # Setup TensorBoard writer.
+        writer = SummaryWriter("runs/Current")
+        # Train if we are building a new model, this is skipped if a model was loaded.
+        print(f"Training '{name}' for {epochs} epochs with batch size {batch}...")
+        # Train for the set number of epochs
+        accuracy = accuracy_check(model, batch, testing, best_accuracy, name)
+        if accuracy > best_accuracy:
+            best_accuracy = accuracy
+            best_epoch = -1
+        if epochs < 1:
+            epochs = 1
+        for epoch in range(epochs):
+            loss_message = "Loss = " + (f"{loss / training_total:.4}" if epoch > 0 else "N/A")
+            msg = f"Epoch {epoch + 1}/{epochs} | {loss_message} | Accuracy = {accuracy:.4}%"
+            # Reset loss every epoch.
+            loss = 0
+            for raw_image, raw_label in tqdm(training, msg):
+                image, label = to_tensor(raw_image), to_tensor(raw_label)
+                loss += model.optimize(image, label)
             accuracy = accuracy_check(model, batch, testing, best_accuracy, name)
             if accuracy > best_accuracy:
                 best_accuracy = accuracy
-                best_epoch = -1
-            for epoch in range(epochs):
-                loss_message = "Loss = " + (f"{loss / training_total:.4}" if epoch > 0 else "N/A")
-                msg = f"Epoch {epoch + 1}/{epochs} | {loss_message} | Accuracy = {accuracy:.4}%"
-                # Reset loss every epoch.
-                loss = 0
-                for raw_image, raw_label in tqdm(training, msg):
-                    image, label = to_tensor(raw_image), to_tensor(raw_label)
-                    loss += model.optimize(image, label)
-                accuracy = accuracy_check(model, batch, testing, best_accuracy, name)
-                if accuracy > best_accuracy:
-                    best_accuracy = accuracy
-                    best_epoch = epoch
-                writer.add_scalar('Training Loss', loss / training_total, epoch)
-                writer.add_scalar('Accuracy', accuracy, epoch)
-            print(f"Accuracy of Last Epoch = {accuracy:.4}%")
-            if best_epoch == -2:
-                print(f"Training Complete, did not perform better than existing '{name}'.pt with {best_accuracy:.4}% accuracy.")
-                writer.close()
-                shutil.rmtree(f"{os.getcwd()}/runs/Current")
-                continue
-            best_epoch += 1
-            if best_epoch == 0:
-                print(f"Model '{name}' performed best untrained.")
-            else:
-                print(f"Training '{name}' complete, best result was on epoch {best_epoch}")
-        # Test the best model on the testing data.
-        if not load:
-            model.load_state_dict(torch.load(f"{os.getcwd()}/Models/{name}.pt"))
-        start = time.time_ns()
-        accuracy = test(model, batch, testing)
-        end = time.time_ns()
-        inference_time = ((end - start) / testing_total) / 1e+6
-        train_accuracy = test(model, batch, training)
-        print(f"Training Accuracy = {train_accuracy}%")
-        print(f"Testing Accuracy = {accuracy}%")
-        print(f"Average Inference Time: {inference_time} ms")
-        if load:
+                best_epoch = epoch
+            writer.add_scalar('Training Loss', loss / training_total, epoch)
+            writer.add_scalar('Accuracy', accuracy, epoch)
+        print(f"Accuracy of last epoch = {accuracy:.4}%")
+        if best_epoch == -2:
+            print(
+                f"Training Complete, did not perform better than existing '{name}' with {best_accuracy:.4}% accuracy.")
+            writer.close()
+            shutil.rmtree(f"{os.getcwd()}/runs/Current")
             return
-        # Generate sample images of the data.
-        data_image(training, writer, 'Training Sample')
-        data_image(testing, writer, 'Testing Sample')
-        # Write data to TensorBoard.
-        writer.add_text(f"Accuracy", f"{accuracy}%")
-        writer.add_text(f"Average Inference Time", f"{inference_time} ms")
-        # Create a graph of the model.
-        img = to_tensor(iter(testing).__next__()[0])
-        writer.add_graph(model, img)
-        # Ensure the folder to save graph images exists.
-        if not os.path.exists(f"{os.getcwd()}/Graphs"):
-            os.mkdir(f"{os.getcwd()}/Graphs")
-        try:
-            y = model.forward(img)
-            make_dot(y.mean(), params=dict(model.named_parameters())).render(f"{os.getcwd()}/Graphs/{name}", format="png")
-            # Makes redundant file, remove it.
-            os.remove(f"{os.getcwd()}/Graphs/{name}")
-        except:
-            "Could not generate graph image, make sure you have 'Graphviz' installed."
-        writer.close()
-        # If there is an older, worse run data with the same name, overwrite it.
-        if os.path.exists(f"{os.getcwd()}/runs/{name}"):
-            shutil.rmtree(f"{os.getcwd()}/runs/{name}")
-        os.rename(f"{os.getcwd()}/runs/Current", f"{os.getcwd()}/runs/{name}")
-        # Save model parameters and accuracy.
-        trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        # Ensure Folder to save parameters exists
-        if not os.path.exists(f"{os.getcwd()}/Parameters"):
-            os.mkdir(f"{os.getcwd()}/Parameters")
-        f = open(f"{os.getcwd()}/Parameters/{name}.txt", "w")
-        f.write(f"Name: {name}\n"
-                f"Training Accuracy: {train_accuracy}\n"
-                f"Testing Accuracy: {best_accuracy}\n"
-                f"Average Inference Time: {inference_time} ms\n"
-                f"Trainable Parameters: {trainable_parameters}\n"
-                f"Best Epoch: {best_epoch}\n"
-                f"Batch Size: {batch}\n"
-                f"Minimum rescaling size of training data: {mini}\n"
-                f"Maximum rescaling size of training data: {maxi}\n"
-                f"Maximum rotation of training data: {rot}")
-        f.close()
+        best_epoch += 1
+        if best_epoch == 0:
+            print(f"Model '{name}' performed best untrained.")
+        else:
+            print(f"Training '{name}' complete, best result was on epoch {best_epoch}.")
+    # Test the best model on the testing data.
+    print("Testing trained model...")
+    # Reload best model from training as the final model may not have been the best.
+    if not load:
+        model.load_state_dict(torch.load(f"{os.getcwd()}/Models/{name}/Network.pt"))
+    train_accuracy = test(model, batch, training)
+    start = time.time_ns()
+    accuracy = test(model, batch, testing)
+    end = time.time_ns()
+    inference_time = ((end - start) / testing_total) / 1e+6
+    print(f"Training Accuracy = {train_accuracy}%\n"
+          f"Testing Accuracy = {accuracy}%\n"
+          f"Average Inference Time: {inference_time} ms")
+    # Nothing to save if we are just testing inference on a loaded model.
+    if load:
+        return
+    # Generate sample images of the data.
+    data_image(training, writer, 'Training Sample')
+    data_image(testing, writer, 'Testing Sample')
+    # Write data to TensorBoard.
+    writer.add_text(f"Accuracy", f"{accuracy}%")
+    writer.add_text(f"Average Inference Time", f"{inference_time} ms")
+    # Create a graph of the model.
+    img = to_tensor(iter(testing).__next__()[0])
+    writer.add_graph(model, img)
+    # Ensure the folder to save graph images exists.
+    try:
+        y = model.forward(img)
+        make_dot(y.mean(), params=dict(model.named_parameters())).render(f"{os.getcwd()}/Models/{name}/Graph", format="png")
+        # Makes redundant file, remove it.
+        os.remove(f"{os.getcwd()}/Models/{name}/Graph")
+    except:
+        "Could not generate graph image, make sure you have 'Graphviz' installed."
+    writer.close()
+    # If there is an older, worse run data with the same name, overwrite it.
+    if os.path.exists(f"{os.getcwd()}/runs/{name}"):
+        shutil.rmtree(f"{os.getcwd()}/runs/{name}")
+    os.rename(f"{os.getcwd()}/runs/Current", f"{os.getcwd()}/runs/{name}")
+    # Save model parameters and accuracy.
+    trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    f = open(f"{os.getcwd()}/Models/{name}/Details.txt", "w")
+    f.write(f"Training Accuracy: {train_accuracy}\n"
+            f"Testing Accuracy: {best_accuracy}\n"
+            f"Average Inference Time: {inference_time} ms\n"
+            f"Trainable Parameters: {trainable_parameters}\n"
+            f"Best Epoch: {best_epoch}\n"
+            f"Batch Size: {batch}\n"
+            f"Augmented: {augment}")
+    f.close()
 
 
 if __name__ == '__main__':
@@ -395,9 +381,6 @@ if __name__ == '__main__':
     parser.add_argument("-e", "--epoch", type=int, help="Number of training epochs.", default=10)
     parser.add_argument("-b", "--batch", type=int, help="Training and testing batch size.", default=64)
     parser.add_argument("-l", "--load", help="Load the model with the given name and test it.", action="store_true")
-    parser.add_argument("-a", "--attempts", type=int, help="The amount of times to try the training.", default=1)
-    parser.add_argument("--min", type=float, help="Minimum rescaling size of training data.", default=1)
-    parser.add_argument("--max", type=float, help="Maximum rescaling size of training data.", default=1)
-    parser.add_argument("-r", "--rot", type=float, help="Maximum rotation of training data.", default=0)
+    parser.add_argument("-s", "--standard", help="Keep training data standard and apply no transformations.", action="store_false")
     a = vars(parser.parse_args())
-    main(a["name"], a["epoch"], a["batch"], a["load"], a["min"], a["max"], a["rot"], a["attempts"])
+    main(a["name"], a["epoch"], a["batch"], a["load"], a["standard"])
