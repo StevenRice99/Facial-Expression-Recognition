@@ -263,6 +263,8 @@ def main(name: str, epochs: int, batch: int, load: bool, augment: bool):
         model = NeuralNetwork()
     summary(model, input_size=(1, 48, 48))
     if not load:
+        if not os.path.exists(f"{os.getcwd()}/Training"):
+            os.mkdir(f"{os.getcwd()}/Training")
         accuracies = []
         losses = []
         best_epoch = -2
@@ -274,6 +276,17 @@ def main(name: str, epochs: int, batch: int, load: bool, augment: bool):
             print("Training data has not been augmented.")
         if not os.path.exists(f"{os.getcwd()}/Models"):
             os.mkdir(f"{os.getcwd()}/Models")
+        starting_epoch = 0
+        if os.path.exists(f"{os.getcwd()}/Training/{name}.pt"):
+            previous = torch.load(f"{os.getcwd()}/Training/{name}.pt")
+            saved_epoch = previous['Epoch']
+            if starting_epoch + 1 >= epochs:
+                print("Previous saved training was complete, starting new training.")
+            else:
+                starting_epoch = saved_epoch
+                model.load_state_dict(previous['Model'])
+                model.optimizer.load_state_dict(previous['Optimizer'])
+                print(f"Resuming previous training from epoch {starting_epoch + 1}.")
         # Check if an existing model of the same name exists.
         if os.path.exists(f"{os.getcwd()}/Models/{name}/Network.pt"):
             print(f"Model '{name}' already exists, checking its accuracy for comparison...")
@@ -299,8 +312,8 @@ def main(name: str, epochs: int, batch: int, load: bool, augment: bool):
             best_epoch = -1
         if epochs < 1:
             epochs = 1
-        for epoch in range(epochs):
-            loss_message = "Previous Loss = " + (f"{loss:.4}" if epoch > 0 else "N/A")
+        for epoch in range(starting_epoch, epochs):
+            loss_message = "Previous Loss = " + (f"{loss:.4}" if epoch > starting_epoch else "N/A")
             msg = f"Epoch {epoch + 1}/{epochs} | {loss_message} | Previous Accuracy = {accuracy:.4}%"
             # Reset loss every epoch.
             loss = 0
@@ -316,7 +329,17 @@ def main(name: str, epochs: int, batch: int, load: bool, augment: bool):
                 best_epoch = epoch
             writer.add_scalar('Training Loss', loss, epoch)
             writer.add_scalar('Accuracy', accuracy, epoch)
+            torch.save({
+                'Model': model.state_dict(),
+                'Optimizer': model.optimizer.state_dict(),
+                'Epoch': epoch
+            },
+            f"{os.getcwd()}/Training/{name}.pt")
         print(f"Accuracy of last epoch = {accuracy:.4}%")
+        # Delete completed training model as the final model and training log is saved elsewhere.
+        os.remove(f"{os.getcwd()}/Training/{name}.pt")
+        if not os.listdir(f"{os.getcwd()}/Training"):
+            shutil.rmtree(f"{os.getcwd()}/Training")
         if best_epoch == -2:
             print(
                 f"Training Complete, did not perform better than existing '{name}' with {best_accuracy:.4}% accuracy.")
@@ -381,8 +404,8 @@ def main(name: str, epochs: int, batch: int, load: bool, augment: bool):
     # Write training data.
     f = open(f"{os.getcwd()}/Models/{name}/Training.csv", "w")
     f.write("Epoch,Loss,Accuracy")
-    for epoch in range(epochs):
-        f.write(f"\n{epoch + 1},{losses[epoch]},{accuracies[epoch]}")
+    for epoch in range(0, epochs - starting_epoch):
+        f.write(f"\n{epoch + starting_epoch + 1},{losses[epoch]},{accuracies[epoch]}")
     f.close()
 
 
