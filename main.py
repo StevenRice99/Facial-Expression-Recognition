@@ -263,6 +263,8 @@ def main(name: str, epochs: int, batch: int, load: bool, augment: bool):
         model = NeuralNetwork()
     summary(model, input_size=(1, 48, 48))
     if not load:
+        accuracies = []
+        losses = []
         best_epoch = -2
         best_accuracy = 0
         # Ensure folder to save models exists.
@@ -298,18 +300,21 @@ def main(name: str, epochs: int, batch: int, load: bool, augment: bool):
         if epochs < 1:
             epochs = 1
         for epoch in range(epochs):
-            loss_message = "Loss = " + (f"{loss / training_total:.4}" if epoch > 0 else "N/A")
-            msg = f"Epoch {epoch + 1}/{epochs} | {loss_message} | Accuracy = {accuracy:.4}%"
+            loss_message = "Previous Loss = " + (f"{loss:.4}" if epoch > 0 else "N/A")
+            msg = f"Epoch {epoch + 1}/{epochs} | {loss_message} | Previous Accuracy = {accuracy:.4}%"
             # Reset loss every epoch.
             loss = 0
             for raw_image, raw_label in tqdm(training, msg):
                 image, label = to_tensor(raw_image), to_tensor(raw_label)
                 loss += model.optimize(image, label)
+            loss /= training_total
+            losses.append(loss)
             accuracy = accuracy_check(model, batch, testing, best_accuracy, name)
+            accuracies.append(accuracy)
             if accuracy > best_accuracy:
                 best_accuracy = accuracy
                 best_epoch = epoch
-            writer.add_scalar('Training Loss', loss / training_total, epoch)
+            writer.add_scalar('Training Loss', loss, epoch)
             writer.add_scalar('Accuracy', accuracy, epoch)
         print(f"Accuracy of last epoch = {accuracy:.4}%")
         if best_epoch == -2:
@@ -333,8 +338,8 @@ def main(name: str, epochs: int, batch: int, load: bool, augment: bool):
     accuracy = test(model, batch, testing)
     end = time.time_ns()
     inference_time = ((end - start) / testing_total) / 1e+6
-    print(f"Training Accuracy = {train_accuracy}%\n"
-          f"Testing Accuracy = {accuracy}%\n"
+    print(f"Testing Accuracy = {accuracy}%\n"
+          f"Training Accuracy = {train_accuracy}%\n"
           f"Average Inference Time: {inference_time} ms")
     # Nothing to save if we are just testing inference on a loaded model.
     if load:
@@ -364,13 +369,20 @@ def main(name: str, epochs: int, batch: int, load: bool, augment: bool):
     # Save model parameters and accuracy.
     trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     f = open(f"{os.getcwd()}/Models/{name}/Details.txt", "w")
-    f.write(f"Training Accuracy: {train_accuracy}\n"
-            f"Testing Accuracy: {best_accuracy}\n"
+    f.write(f"Testing Accuracy: {best_accuracy}\n"
+            f"Training Accuracy: {train_accuracy}\n"
             f"Average Inference Time: {inference_time} ms\n"
             f"Trainable Parameters: {trainable_parameters}\n"
             f"Best Epoch: {best_epoch}\n"
+            f"Total Epochs: {epochs}\n"
             f"Batch Size: {batch}\n"
             f"Augmented: {augment}")
+    f.close()
+    # Write training data.
+    f = open(f"{os.getcwd()}/Models/{name}/Training.csv", "w")
+    f.write("Epoch,Loss,Accuracy")
+    for epoch in range(epochs):
+        f.write(f"\n{epoch + 1},{losses[epoch]},{accuracies[epoch]}")
     f.close()
 
 

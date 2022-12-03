@@ -55,7 +55,8 @@ This codebase is for solving the [Kaggle Challenges in Representation Learning: 
 6. Once done, a folder with the given name can be found in the "Models" folder which contains the following:
    1. "Network.pt" which contains the best weights and bias saved which can be loaded for inference.
    2. "Graph.png" which displays the network architecture.
-   3. "Details.txt" which contains an overview of the model/. 
+   3. "Details.txt" which contains an overview of the model. 
+   4. "Training.csv" which contains the loss and accuracy values for each training epoch.
 7. TensorBoard data will be saved in the "runs" folder.
 
 # Limitations
