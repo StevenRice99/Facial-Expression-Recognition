@@ -215,16 +215,15 @@ def save(name: str, model, best_model, epoch: int, no_change: int, best_accuracy
     }, f"{os.getcwd()}/Models/{name}/Model.pt")
 
 
-def write_parameters(name: str, best_accuracy: float, train_accuracy: float, inference_time: float, trainable_parameters: int, best_epoch: int, batch: int, augment: bool):
+def write_parameters(name: str, best_accuracy: float, train_accuracy: float, inference_time: float, trainable_parameters: int, best_epoch: int):
     parameters = open(f"{os.getcwd()}/Models/{name}/Details.txt", "w")
     parameters.write(f"Testing Accuracy: {best_accuracy}\n"
                      f"Training Accuracy: {train_accuracy}\n"
                      f"Average Inference Time: {inference_time} ms\n"
                      f"Trainable Parameters: {trainable_parameters}\n"
-                     f"Best Epoch: {best_epoch}\n"
-                     f"Batch Size: {batch}\n"
-                     f"Augmented: {augment}")
+                     f"Best Epoch: {best_epoch}")
     parameters.close()
+
 
 def main(name: str, batch: int, load: bool, augment: bool):
     """
@@ -247,8 +246,10 @@ def main(name: str, batch: int, load: bool, augment: bool):
     test_images, test_labels = prepare_data(df[df['Usage'] != 'Training'])
     training_data = FaceDataset(train_images, train_labels, augment)
     testing_data = FaceDataset(test_images, test_labels)
+    name = name.replace("Augmented", "")
     if augment:
         normal_training_data = FaceDataset(train_images, train_labels)
+        name = f"{name}Augmented"
     else:
         normal_training_data = training_data
     training_total = dataset_details("Training", train_labels)
@@ -336,7 +337,7 @@ def main(name: str, batch: int, load: bool, augment: bool):
             "Could not generate graph image, make sure you have 'Graphviz' installed."
     train_accuracy = test(model, batch, normal_training)
     trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    write_parameters(name, best_accuracy, train_accuracy, inference_time, trainable_parameters, 0, batch, augment)
+    write_parameters(name, best_accuracy, train_accuracy, inference_time, trainable_parameters, 0)
     save(name, model, best_model, epoch, no_change, best_accuracy, loss)
     # Train until program is stopped.
     while True:
@@ -358,7 +359,7 @@ def main(name: str, batch: int, load: bool, augment: bool):
             inference_time = ((end - start) / testing_total) / 1e+6
             no_change = 0
             train_accuracy = test(model, batch, normal_training)
-            write_parameters(name, best_accuracy, train_accuracy, inference_time, trainable_parameters, epoch, batch, augment)
+            write_parameters(name, best_accuracy, train_accuracy, inference_time, trainable_parameters, epoch)
         else:
             no_change += 1
         f = open(f"{os.getcwd()}/Models/{name}/Training.csv", "a")
