@@ -296,6 +296,7 @@ def main(name: str, batch: int, load: bool, augment: bool):
             print(f"Continuing training for '{name}' from epoch {epoch}.")
         except:
             print("Unable to load training data, exiting.")
+            return
     else:
         loss = -1
         epoch = 1
