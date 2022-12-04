@@ -23,11 +23,9 @@ This codebase is for solving the [Kaggle Challenges in Representation Learning: 
    2. The remaining packages can be installed via "pip *package*" in the console:
       1. [numpy](https://numpy.org "numpy")
       2. [pandas](https://pandas.pydata.org "pandas")
-      3. [shutil](https://docs.python.org/3/library/shutil.html "shutil")
-      4. [tensorboard](https://pypi.org/project/tensorboard "tensorboard")
-      5. [torchsummary](https://pypi.org/project/torchsummary "torchsummary")
-      6. [torchviz](https://pypi.org/project/torchviz "torchviz")
-      7. [tqdm](https://github.com/tqdm/tqdm "tqdm")
+      3. [torchsummary](https://pypi.org/project/torchsummary "torchsummary")
+      4. [torchviz](https://pypi.org/project/torchviz "torchviz")
+      5. [tqdm](https://github.com/tqdm/tqdm "tqdm")
 3. Install [Graphviz](https://graphviz.org "Graphviz") so the Python script can generate a graph of neural networks.
 
 ## Download Dataset
@@ -44,21 +42,16 @@ This codebase is for solving the [Kaggle Challenges in Representation Learning: 
 2. Follow [setup](#setup "Setup") steps.
 3. "model_builder.py" is where you can build your model architecture.
    1. The input is always 1 channel 48x48, and the final output needs to be 7.
-4. In the cloned/downloaded directory, run: **tensorboard --logdir="runs"** or **python -m tensorboard.main --logdir=[PATH_TO_LOGDIR]**
-   1. This will allow you to open TensorBoard in your browser which by default is usually at [http://localhost:6006](http://localhost:6006 "Tensorboard").
-5. Run "main.py" with optional run parameters.
+4. Run "main.py" with optional run parameters.
    1. -n, --name - Name of the model. Defaults to "Model".
-   2. -m, --max - Number maximum number of training epochs. Defaults to 1000.
-   3. -b, --batch - Training and testing batch size. Defaults to 64.
-   4. -e, --early - The number of epochs to stop training early if there is no improvement in accuracy. Defaults to 20.
-   5. -l, --load - Load the model with the given name and test it.
-   6. -s, --standard - Keep training data standard and apply no transformations.
-6. Once done, a folder with the given name can be found in the "Models" folder which contains the following:
+   2. -b, --batch - Training and testing batch size. Defaults to 64.
+   3. -t, --test - Load and test the model with the given name.
+   4. -a, --augment - Augment training data.
+5. Once done, a folder with the given name can be found in the "Models" folder which contains the following:
    1. "Network.pt" which contains the best weights and bias saved which can be loaded for inference.
    2. "Graph.png" which displays the network architecture.
    3. "Details.txt" which contains an overview of the model. 
-   4. "Training.csv" which contains the loss and accuracy values for each training epoch. 
-7. TensorBoard data will be saved in the "runs" folder.
+   4. "Training.csv" which contains the loss and accuracy values for each training epoch.
 
 # Limitations
 

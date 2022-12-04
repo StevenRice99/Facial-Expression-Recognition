@@ -10,9 +10,9 @@ def define_layers():
     Flatten Size =        Last Convolutional Out Channels * Size^2
     :return: A sequential layer structure which has a 48x48 single channel starting input layer and a 7 final output layer.
     """
-    #return small_network()
+    return small_network()
     #return large_network()
-    return resnet50_network()
+    #return resnet50_network()
 
 
 def define_loss():
