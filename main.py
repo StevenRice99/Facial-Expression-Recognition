@@ -203,21 +203,16 @@ def prepare_data(data):
     images = images.astype('float32') / 255
     return images, labels
 
-
-def accuracy_check(model, batch: int, dataloader, best_accuracy: float, name: str):
-    """
-    Determine if a new model has a better accuracy than a previous.
-    :param model: The model.
-    :param batch: The batch size.
-    :param dataloader: The dataloader.
-    :param best_accuracy: The current best accuracy.
-    :param name: The name of the model to save if this is the new best accuracy.
-    :return: The accuracy of the current model.
-    """
-    accuracy = test(model, batch, dataloader)
-    if accuracy > best_accuracy:
-        torch.save(model.state_dict(), f"{os.getcwd()}/Models/{name}/Network.pt")
-    return accuracy
+def save(name: str, model, best_model, epoch: int, no_change: int, best_accuracy: float, loss: float):
+    torch.save({
+        'Best': best_model,
+        'Training': model.state_dict(),
+        'Optimizer': model.optimizer.state_dict(),
+        'Epoch': epoch,
+        'No Change': no_change,
+        'Best Accuracy': best_accuracy,
+        'Loss': loss
+    }, f"{os.getcwd()}/Models/{name}/Model.pt")
 
 
 def write_parameters(name: str, best_accuracy: float, train_accuracy: float, inference_time: float, trainable_parameters: int, best_epoch: int, batch: int, augment: bool):
@@ -264,12 +259,13 @@ def main(name: str, batch: int, load: bool, augment: bool):
     normal_training = DataLoader(normal_training_data, batch_size=batch, shuffle=True)
     if load:
         # If a model does not exist to load decide to generate a new model instead.
-        if not os.path.exists(f"{os.getcwd()}/Models/{name}/Network.pt"):
+        if not os.path.exists(f"{os.getcwd()}/Models/{name}/Model.pt"):
             print(f"Model '{name}' does not exist to load.")
             return
         try:
             model = NeuralNetwork()
-            model.load_state_dict(torch.load(f"{os.getcwd()}/Models/{name}/Network.pt"))
+            saved = torch.load(f"{os.getcwd()}/Models/{name}/Model.pt")
+            model.load_state_dict(saved['Best'])
         except:
             print("Model to load has different structure than 'model_builder'.py, cannot load.")
             return
@@ -283,11 +279,27 @@ def main(name: str, batch: int, load: bool, augment: bool):
               f"Average Inference Time: {inference_time} ms")
         return
     model = NeuralNetwork()
+    best_model = model.state_dict()
     summary(model, input_size=(1, 48, 48))
     # Check if an existing model of the same name exists.
-    if os.path.exists(f"{os.getcwd()}/Models/{name}/Network.pt"):
-        print(f"Model '{name}' already exists, stopping to not overwrite.")
-        return
+    if os.path.exists(f"{os.getcwd()}/Models/{name}/Model.pt"):
+        try:
+            print(f"Model '{name}' already exists, attempting to load to continue training...")
+            saved = torch.load(f"{os.getcwd()}/Models/{name}/Model.pt")
+            best_model = saved['Best']
+            model.load_state_dict(saved['Training'])
+            model.optimizer.load_state_dict(saved['Optimizer'])
+            epoch = saved['Epoch']
+            no_change = saved['No Change']
+            best_accuracy = saved['Best Accuracy']
+            loss = saved['Loss']
+            print(f"Continuing training for '{name}' from epoch {epoch}.")
+        except:
+            print("Unable to load training data, exiting.")
+    else:
+        loss = -1
+        epoch = 1
+        no_change = 0
     if not os.path.exists(f"{os.getcwd()}/Models/{name}"):
         os.mkdir(f"{os.getcwd()}/Models/{name}")
     if augment:
@@ -300,30 +312,31 @@ def main(name: str, batch: int, load: bool, augment: bool):
     # Ensure folder to save models exists.
     if not os.path.exists(f"{os.getcwd()}/Models"):
         os.mkdir(f"{os.getcwd()}/Models")
-    # Generate sample images of the data.
-    data_image(training, name, 'Training Sample')
-    data_image(testing, name, 'Testing Sample')
-    epoch = 1
-    no_change = 0
     start = time.time_ns()
-    accuracy = accuracy_check(model, batch, testing, 0, name)
+    accuracy = test(model, batch, testing)
     end = time.time_ns()
     inference_time = ((end - start) / testing_total) / 1e+6
-    best_accuracy = accuracy
+    if epoch == 1:
+        best_accuracy = accuracy
+        f = open(f"{os.getcwd()}/Models/{name}/Training.csv", "w")
+        f.write("Epoch,Loss,Accuracy,Best Accuracy")
+        f.close()
+        # Generate sample images of the data.
+        data_image(training, name, 'Training Sample')
+        data_image(testing, name, 'Testing Sample')
+        # Create a graph of the model.
+        try:
+            y = model.forward(to_tensor(iter(testing).__next__()[0]))
+            make_dot(y.mean(), params=dict(model.named_parameters())).render(f"{os.getcwd()}/Models/{name}/Graph",
+                                                                             format="png")
+            # Makes redundant file, remove it.
+            os.remove(f"{os.getcwd()}/Models/{name}/Graph")
+        except:
+            "Could not generate graph image, make sure you have 'Graphviz' installed."
     train_accuracy = test(model, batch, normal_training)
     trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    # Create a graph of the model.
-    try:
-        y = model.forward(to_tensor(iter(testing).__next__()[0]))
-        make_dot(y.mean(), params=dict(model.named_parameters())).render(f"{os.getcwd()}/Models/{name}/Graph", format="png")
-        # Makes redundant file, remove it.
-        os.remove(f"{os.getcwd()}/Models/{name}/Graph")
-    except:
-        "Could not generate graph image, make sure you have 'Graphviz' installed."
     write_parameters(name, best_accuracy, train_accuracy, inference_time, trainable_parameters, 0, batch, augment)
-    f = open(f"{os.getcwd()}/Models/{name}/Training.csv", "w")
-    f.write("Epoch,Loss,Accuracy,Best Accuracy")
-    f.close()
+    save(name, model, best_model, epoch, no_change, best_accuracy, loss)
     # Train until program is stopped.
     while True:
         loss_message = "Previous Loss = " + (f"{loss:.4}" if epoch > 1 else "N/A")
@@ -336,9 +349,10 @@ def main(name: str, batch: int, load: bool, augment: bool):
             loss += model.optimize(image, label)
         loss /= training_total
         start = time.time_ns()
-        accuracy = accuracy_check(model, batch, testing, best_accuracy, name)
+        accuracy = test(model, batch, testing)
         end = time.time_ns()
         if accuracy > best_accuracy:
+            best_model = model.state_dict()
             best_accuracy = accuracy
             inference_time = ((end - start) / testing_total) / 1e+6
             no_change = 0
@@ -349,6 +363,8 @@ def main(name: str, batch: int, load: bool, augment: bool):
         f = open(f"{os.getcwd()}/Models/{name}/Training.csv", "a")
         f.write(f"\n{epoch},{loss},{accuracy},{best_accuracy}")
         f.close()
+        epoch += 1
+        save(name, model, best_model, epoch, no_change, best_accuracy, loss)
 
 
 if __name__ == '__main__':
