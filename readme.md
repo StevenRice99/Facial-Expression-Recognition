@@ -10,7 +10,7 @@
 
 # Challenge
 
-This codebase is for solving the [Kaggle Challenges in Representation Learning: Facial Expression Recognition Challenge](https://www.kaggle.com/competitions/challenges-in-representation-learning-facial-expression-recognition-challenge, "Kaggle Challenges in Representation Learning: Facial Expression Recognition Challenge").
+This codebase is for solving the [Kaggle Challenges in Representation Learning: Facial Expression Recognition Challenge](https://www.kaggle.com/competitions/challenges-in-representation-learning-facial-expression-recognition-challenge "Kaggle Challenges in Representation Learning: Facial Expression Recognition Challenge").
 
 # Setup
 
@@ -48,17 +48,17 @@ This codebase is for solving the [Kaggle Challenges in Representation Learning: 
    1. This will allow you to open TensorBoard in your browser which by default is usually at [http://localhost:6006](http://localhost:6006 "Tensorboard").
 5. Run "main.py" with optional run parameters.
    1. -n, --name - Name of the model. Defaults to "Model".
-   2. -e, --epoch - Number of training epochs. Defaults to 10.
+   2. -m, --max - Number maximum number of training epochs. Defaults to 1000.
    3. -b, --batch - Training and testing batch size. Defaults to 64.
-   4. -l, --load - Load the model with the given name and test it.
-   5. -s, --standard - Keep training data standard and apply no transformations.
+   4. -e, --early - The number of epochs to stop training early if there is no improvement in accuracy. Defaults to 20.
+   5. -l, --load - Load the model with the given name and test it.
+   6. -s, --standard - Keep training data standard and apply no transformations.
 6. Once done, a folder with the given name can be found in the "Models" folder which contains the following:
    1. "Network.pt" which contains the best weights and bias saved which can be loaded for inference.
    2. "Graph.png" which displays the network architecture.
    3. "Details.txt" which contains an overview of the model. 
-   4. "Training.csv" which contains the loss and accuracy values for each training epoch. Note this will not contain full data if training is interrupted and resumed. 
+   4. "Training.csv" which contains the loss and accuracy values for each training epoch. 
 7. TensorBoard data will be saved in the "runs" folder.
-8. If training gets interrupted, the model and optimizer are saved with its given name in the "Training" folder.
 
 # Limitations
 
