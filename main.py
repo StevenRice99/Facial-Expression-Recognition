@@ -370,11 +370,14 @@ def main(name: str, batch: int, load: bool, augment: bool):
 
 
 if __name__ == '__main__':
-    desc = "Face Expression Recognition Deep Learning\n-----------------------------------------"
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=desc)
-    parser.add_argument("-n", "--name", type=str, help="Name of the model.", default='Model')
-    parser.add_argument("-b", "--batch", type=int, help="Training and testing batch size.", default=64)
-    parser.add_argument("-t", "--test", help="Load and test the model with the given name.", action="store_true")
-    parser.add_argument("-a", "--augment", help="Augment training data.", action="store_true")
-    a = vars(parser.parse_args())
-    main(a["name"], a["batch"], a["test"], a["augment"])
+    try:
+        desc = "Face Expression Recognition Deep Learning\n-----------------------------------------"
+        parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=desc)
+        parser.add_argument("-n", "--name", type=str, help="Name of the model.", default='Model')
+        parser.add_argument("-b", "--batch", type=int, help="Training and testing batch size.", default=64)
+        parser.add_argument("-t", "--test", help="Load and test the model with the given name.", action="store_true")
+        parser.add_argument("-a", "--augment", help="Augment training data.", action="store_true")
+        a = vars(parser.parse_args())
+        main(a["name"], a["batch"], a["test"], a["augment"])
+    except KeyboardInterrupt:
+        print("Training Stopped.")
