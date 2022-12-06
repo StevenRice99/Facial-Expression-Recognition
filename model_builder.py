@@ -11,7 +11,6 @@ def define_layers(name: str):
     :param name: The name of the model architecture to use.
     :return: A sequential layer structure which has a 48x48 single channel starting input layer and a 7 final output layer.
     """
-<<<<<<< HEAD
     name = name.lower()
     if name == "simple":
         return simple_network()
@@ -20,11 +19,6 @@ def define_layers(name: str):
     if name == "resnet":
         return resnet_network()
     raise ValueError(f"Model architecture \"{name}\" does not exist, options are \"simple\", \"expanded\", or \"resnet\".")
-=======
-    return small_network()
-    #return large_network()
-    #return resnet50_network()
->>>>>>> parent of d7b101c (Large unchanged done.)
 
 
 def define_loss():
