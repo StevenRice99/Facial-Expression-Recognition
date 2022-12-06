@@ -240,7 +240,7 @@ def main(name: str, epochs: int, batch: int, load: bool, wait: int):
     print(f"Face Expression Recognition Deep Learning")
     print(f"Running on GPU with CUDA {torch.version.cuda}." if torch.cuda.is_available() else "Running on CPU.")
     if not os.path.exists(f"{os.getcwd()}/Data.csv"):
-        print("Data.csv missing, visit https://github.com/StevenRice99/COMP-4730-Project-2#dataset for instructions.")
+        print("Data.csv missing, visit https://github.com/StevenRice99/COMP-4730-Project-2#setup for instructions.")
         return
     name = name.lower()
     if name == "simple":
@@ -395,8 +395,8 @@ if __name__ == '__main__':
         parser.add_argument("model", type=str, help="Name of the model, options are \"simple\", \"expanded\", or \"resnet\"")
         parser.add_argument("-e", "--epoch", type=int, help="The number of epochs to train for.", default=100)
         parser.add_argument("-b", "--batch", type=int, help="Training and testing batch size.", default=64)
-        parser.add_argument("-t", "--test", help="Load and test the model with the given name.", action="store_true")
         parser.add_argument("-w", "--wait", type=int, help="The number of epochs to wait before switching to augmented data if there are no network improvements.", default=20)
+        parser.add_argument("-t", "--test", help="Load and test the model with the given name without performing any training.", action="store_true")
         a = vars(parser.parse_args())
         main(a["model"], a["epoch"], a["batch"], a["test"], a["wait"])
     except KeyboardInterrupt:
