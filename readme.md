@@ -13,7 +13,7 @@ This codebase is for solving the [Kaggle Challenges in Representation Learning: 
 
 # Setup
 
-1. Download the [dataset](#dataset) and optionally [trained models](#trained-models "Trained Models").
+1. Download the [dataset](#dataset) and optionally our [trained models](#trained-models "Trained Models").
 2. Install [Python](https://www.python.org "Python").
    1. Python 3.7.10 was used for this project's creation, but any newer version should work.
 3. Install required Python packages. If unfamiliar with Python, "pip" comes with standard Python installations, and you can run "pip *package*" to install a package.
@@ -62,7 +62,8 @@ arXiv 2013.
 
 # Trained Models
 
-Due to GitHub file size limits, [download our trained models here](https://uwin365-my.sharepoint.com/:u:/g/personal/rice118_uwindsor_ca/ER5EGzUZonJPvODMxZlTN0oBC3civzsIALIyRikks264nQ?e=i3z17o).
+1. [Download our trained models here](https://uwin365-my.sharepoint.com/:u:/g/personal/rice118_uwindsor_ca/ER5EGzUZonJPvODMxZlTN0oBC3civzsIALIyRikks264nQ?e=i3z17o).
+2. In the root of your project directory, extract "Models.zip" so you have a folder named "Models".
 
 # References
 
