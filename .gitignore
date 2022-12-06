@@ -12,3 +12,6 @@ venv/
 
 # Dataset
 Data.csv
+
+# Models folder
+Models

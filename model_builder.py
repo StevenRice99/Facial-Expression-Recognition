@@ -1,18 +1,30 @@
 from torch import nn, optim
-from torchvision.models import resnet50, ResNet50_Weights
+from torchvision.models import resnet18, ResNet18_Weights
 
 
-def define_layers():
+def define_layers(name: str):
     """
     Build the layers of the neural network.
     Convolutional Size =  (Size - Kernel + 2 * Padding) / Stride + 1
     Pooling Size =        (Size + 2 * Padding - Kernel) / Stride + 1
     Flatten Size =        Last Convolutional Out Channels * Size^2
+    :param name: The name of the model architecture to use.
     :return: A sequential layer structure which has a 48x48 single channel starting input layer and a 7 final output layer.
     """
-    #return small_network()
-    return large_network()
+<<<<<<< HEAD
+    name = name.lower()
+    if name == "simple":
+        return simple_network()
+    if name == "expanded":
+        return expanded_network()
+    if name == "resnet":
+        return resnet_network()
+    raise ValueError(f"Model architecture \"{name}\" does not exist, options are \"simple\", \"expanded\", or \"resnet\".")
+=======
+    return small_network()
+    #return large_network()
     #return resnet50_network()
+>>>>>>> parent of d7b101c (Large unchanged done.)
 
 
 def define_loss():
@@ -32,7 +44,7 @@ def define_optimizer(neural_network):
     return optim.Adam(neural_network.parameters())
 
 
-def small_network():
+def simple_network():
     """
     A network composing of several, decreasing in size convolutional layers followed by two fully-connected layers.
     :return: A small CNN.
@@ -61,9 +73,9 @@ def small_network():
     )
 
 
-def large_network():
+def expanded_network():
     """
-    Similar to the "Small" network, testing to see if simply increasing initial network input for more convolutional layers will improve accuracy.
+    Similar to the "Simple" network, testing to see if simply increasing initial network input for more convolutional layers will improve accuracy.
     :return: A larger CNN.
     """
     return nn.Sequential(
@@ -100,17 +112,17 @@ def large_network():
     )
 
 
-def resnet50_network():
+def resnet_network():
     """
-    Model based on the ResNet50 architecture.
-    :return: A ResNet50 based model.
+    Model based on the ResNet18 architecture.
+    :return: A ResNet18 based model.
     """
-    # ResNet50 network with pretrained weights.
-    net = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
+    # ResNet18 network with pretrained weights.
+    net = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
 
     return nn.Sequential(
 
-        # Prepare data to be fed into the ResNet50 model.
+        # Prepare data to be fed into the ResNet18 model.
         nn.AdaptiveAvgPool2d(224),
         nn.Conv2d(1, 3, 3),
 
