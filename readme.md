@@ -18,7 +18,7 @@ This codebase is for solving the [Kaggle Challenges in Representation Learning: 
    4. Inside the folder "fer2013", copy the file "fer2013.csv" into the root of your project directory.
    5. Rename "fer2013.csv" to "Data.csv".
 4. Optionally download our trained models.
-   1. [Download our trained models here](https://uwin365-my.sharepoint.com/:u:/g/personal/rice118_uwindsor_ca/ER5EGzUZonJPvODMxZlTN0oBC3civzsIALIyRikks264nQ?e=i3z17o) or checks the releases in this repository.
+   1. [Download our trained models here](https://uwin365-my.sharepoint.com/:u:/g/personal/rice118_uwindsor_ca/ER5EGzUZonJPvODMxZlTN0oBC3civzsIALIyRikks264nQ?e=i3z17o) or check the releases in this repository.
    2. In the root of your project directory, extract the downloaded "Models.zip" so you have a folder named "Models".
 5. Install required Python packages. If unfamiliar with Python, "pip" comes with standard Python installations, and you can run "pip *package*" to install a package.
    1. [PyTorch](https://pytorch.org "PyTorch") and TorchVision.
