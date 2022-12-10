@@ -1,10 +1,10 @@
 # COMP-4730 Project 2
 
+This is a solution for the [Kaggle Challenges in Representation Learning: Facial Expression Recognition Challenge](https://www.kaggle.com/competitions/challenges-in-representation-learning-facial-expression-recognition-challenge "Kaggle Challenges in Representation Learning: Facial Expression Recognition Challenge") using a hybrid training method with both unchanged and augmented data.
+
 - [Setup](#setup "Setup")
 - [Usage](#usage "Usage")
 - [References](#references "References")
-
-This codebase is for solving the [Kaggle Challenges in Representation Learning: Facial Expression Recognition Challenge](https://www.kaggle.com/competitions/challenges-in-representation-learning-facial-expression-recognition-challenge "Kaggle Challenges in Representation Learning: Facial Expression Recognition Challenge") using a hybrid training method on both unchanged and augmented data.
 
 # Setup
 
@@ -50,4 +50,4 @@ This codebase is for solving the [Kaggle Challenges in Representation Learning: 
 
 - "Challenges in Representation Learning: A report on three machine learning contests." I Goodfellow, D Erhan, PL Carrier, A Courville, M Mirza, B Hamner, W Cukierski, Y Tang, DH Lee, Y Zhou, C Ramaiah, F Feng, R Li, X Wang, D Athanasakis, J Shawe-Taylor, M Milakov, J Park, R Ionescu, M Popescu, C Grozea, J Bergstra, J Xie, L Romaszko, B Xu, Z Chuang, and Y. Bengio. arXiv 2013.
 - Based upon our codebase from the [first COMP-4730 project](https://github.com/StevenRice99/COMP-4730-Project-1 "COMP-4730 Project 1").
-- Helper CSV parsing methods based upon [Kaggle submission by "DrCapa"](https://www.kaggle.com/code/drcapa/facial-expression-eda-cnn "Dr. Kappa Challenges in Representation Learning: Facial Expression Recognition Challenge").
+- Helper CSV parsing methods based upon [Kaggle submission by Rico Hoffman](https://www.kaggle.com/code/drcapa/facial-expression-eda-cnn "Rico Hoffman Challenges in Representation Learning: Facial Expression Recognition Challenge").
