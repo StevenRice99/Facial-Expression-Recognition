@@ -9,7 +9,7 @@ This is a solution for the [Kaggle Challenges in Representation Learning: Facial
 # Setup
 
 1. Install [Python](https://www.python.org "Python").
-   1. Python 3.7.10 was used for this project's creation, but any newer version should work.
+   1. Python 3.10.7 was used for this project's creation, but any newer version should work.
 2. Clone or download and extract this repository.
 3. Download the dataset.
    1. Go [here on the Kaggle challenge](https://www.kaggle.com/competitions/challenges-in-representation-learning-facial-expression-recognition-challenge/data?select=fer2013.tar.gz "Kaggle Dataset").
