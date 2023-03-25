@@ -173,6 +173,8 @@ def test(model, batch: int, dataloader):
     :param dataloader: The dataloader to test.
     :return: The model's accuracy.
     """
+    # Switch to evaluation mode.
+    model.eval()
     # Count how many are correct.
     correct = 0
     # Loop through all data.
@@ -356,6 +358,8 @@ def main(name: str, epochs: int, batch: int, load: bool, wait: int):
         msg = f"Epoch {epoch}/{epochs} | {augmented_message} | {loss_message} | Accuracy = {accuracy:.4}% | Best = {best_accuracy:.4}% | {improvement}"
         # Reset loss every epoch.
         loss = 0
+        # Switch to training mode.
+        model.train()
         dataset = augmented_training if augmented else normal_training
         for raw_image, raw_label in tqdm(dataset, msg):
             image, label = to_tensor(raw_image), to_tensor(raw_label)
