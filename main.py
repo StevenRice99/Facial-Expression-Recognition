@@ -6,11 +6,9 @@ import numpy
 import pandas
 import torch
 import torchvision.utils
-from torch import nn
+from torch import nn, optim
 from torch.utils.data import DataLoader, Dataset
-from torchsummary import summary
 from torchvision import transforms
-from torchviz import make_dot
 from tqdm import tqdm
 
 import model_builder
@@ -21,33 +19,35 @@ class FaceDataset(Dataset):
     The datasets built from the CSV data.
     """
 
-    def __init__(self, images, labels, augment: bool = False):
+    def __init__(self, images, labels):
         """
         Create the dataset.
         :param images: The images parsed from the CSV.
         :param labels: The labels parsed from the CSV.
-        :param augment: True to augment data augmented, false otherwise.
         """
         self.images = torch.tensor(images, dtype=torch.float32)
         # Rearrange axis, so they are in proper input order and appear visually upright.
         self.images = torch.swapaxes(self.images, 1, 3)
         self.images = torch.swapaxes(self.images, 2, 3)
         self.labels = torch.tensor(labels, dtype=torch.int)
-        if augment:
-            self.transform = transforms.Compose([
-                # Randomly flip the image.
-                transforms.RandomHorizontalFlip(),
-                # Randomly adjust pixel values.
-                transforms.ColorJitter(brightness=0.5, contrast=0.3, hue=0.3, saturation=0.3),
-                # Randomly rotate the training data to add more variety.
-                transforms.RandomRotation(20),
-                # Randomly adjust image perspective.
-                transforms.RandomPerspective(0.25),
-                # Randomly zoom in on training data to add more variety.
-                transforms.RandomResizedCrop(48, (0.7, 1))
-            ])
-        else:
+        self.transform = None
+
+    def set_transform(self, percent: float):
+        if percent <= 0:
             self.transform = None
+            return
+        self.transform = transforms.Compose([
+            # Randomly flip the image.
+            transforms.RandomHorizontalFlip(0.5 * percent),
+            # Randomly adjust pixel values.
+            transforms.ColorJitter(brightness=0.5 * percent, contrast=0.3 * percent, hue=0.3 * percent, saturation=0.3 * percent),
+            # Randomly rotate the training data to add more variety.
+            transforms.RandomRotation(20 * percent),
+            # Randomly adjust image perspective.
+            transforms.RandomPerspective(0.25 * percent),
+            # Randomly zoom in on training data to add more variety.
+            transforms.RandomResizedCrop(48, (1 - 0.3 * percent, 1), antialias=True)
+        ])
 
     def __len__(self):
         """
@@ -77,8 +77,8 @@ class NeuralNetwork(nn.Module):
         super().__init__()
         # Load in defined parameters.
         self.layers = model_builder.define_layers(name)
-        self.loss = model_builder.define_loss()
-        self.optimizer = model_builder.define_optimizer(self)
+        self.loss = nn.CrossEntropyLoss()
+        self.optimizer = optim.Adam(self.parameters())
         # Run on GPU if available.
         self.to(get_processing_device())
 
@@ -154,15 +154,15 @@ def dataset_details(title: str, labels):
     return total
 
 
-def data_image(dataloader, name: str, title: str):
+def data_image(dataloader, title: str):
     """
     Generate a sample grid image of the dataset.
     :param dataloader: A dataloader.
-    :param name: The name of the model.
     :param title: The title to give the image.
     :return: Nothing.
     """
-    torchvision.utils.save_image(torchvision.utils.make_grid(iter(dataloader).__next__()[0]), f"{os.getcwd()}/Models/{name}/{title}.png")
+    if not os.path.exists(os.path.join(os.getcwd(), f"{title}.png")):
+        torchvision.utils.save_image(torchvision.utils.make_grid(iter(dataloader).__next__()[0]), os.path.join(os.getcwd(), f"{title}.png"))
 
 
 def test(model, batch: int, dataloader):
@@ -205,204 +205,150 @@ def prepare_data(data):
     images = images.astype('float32') / 255
     return images, labels
 
-def save(name: str, model, best_model, epoch: int, no_change: int, best_accuracy: float, loss: float, augmented: bool):
+
+def save(name: str, mode: str, model, best_model, epoch: int, best_accuracy: float, loss: float):
     torch.save({
         'Best': best_model,
         'Training': model.state_dict(),
         'Optimizer': model.optimizer.state_dict(),
         'Epoch': epoch,
-        'No Change': no_change,
         'Best Accuracy': best_accuracy,
-        'Loss': loss,
-        'Augmented': augmented
-    }, f"{os.getcwd()}/Models/{name}/Model.pt")
+        'Loss': loss
+    }, f"{os.getcwd()}/Models/{name}-{mode}.pt")
 
 
-def write_parameters(name: str, best_accuracy: float, train_accuracy: float, inference_time: float, trainable_parameters: int, best_epoch: int, augmented: bool):
-    parameters = open(f"{os.getcwd()}/Models/{name}/Details.txt", "w")
+def write_parameters(name: str, mode: str, best_accuracy: float, train_accuracy: float, inference_time: float, trainable_parameters: int, best_epoch: int):
+    parameters = open(f"{os.getcwd()}/Models/{name}-{mode}.txt", "w")
     parameters.write(f"Testing Accuracy: {best_accuracy}\n"
                      f"Training Accuracy: {train_accuracy}\n"
                      f"Average Inference Time: {inference_time} ms\n"
                      f"Trainable Parameters: {trainable_parameters}\n"
-                     f"Best Epoch: {best_epoch}\n"
-                     f"Augmented: {augmented}")
+                     f"Best Epoch: {best_epoch}")
     parameters.close()
 
 
-def main(name: str, epochs: int, batch: int, load: bool, wait: int):
+def main(epochs: int, batch: int):
     """
     Main program execution.
-    :param name: The name of the model to save files under.
     :param epochs: The number of epochs to train for.
     :param batch: The batch size.
-    :param load: Whether to load an existing model or train a new one.
-    :param wait: The number of epochs to wait before switching to augmented data if there are no network improvements.
     :return: Nothing.
     """
     print(f"Face Expression Recognition Deep Learning")
     print(f"Running on GPU with CUDA {torch.version.cuda}." if torch.cuda.is_available() else "Running on CPU.")
-    if not os.path.exists(f"{os.getcwd()}/Data.csv"):
-        print("Data.csv missing, visit https://github.com/StevenRice99/COMP-4730-Project-2#setup for instructions.")
+    if not os.path.exists(os.path.join(os.getcwd(), "Data.csv")):
+        print("Data.csv missing, visit https://github.com/StevenRice99/Facial-Expression-Recognition#setup for instructions.")
         return
-    name = name.lower()
-    if name == "simple":
-        name = "Simple"
-    elif name == "expanded":
-        name = "Expanded"
-    elif name == "resnet":
-        name = "ResNet"
-    else:
-        raise ValueError(f"Model architecture \"{name}\" does not exist, options are \"simple\", \"expanded\", or \"resnet\".")
     # Setup datasets.
     print("Loading data...")
     df = pandas.read_csv(f"{os.getcwd()}/Data.csv")
     train_images, train_labels = prepare_data(df[df['Usage'] == 'Training'])
     test_images, test_labels = prepare_data(df[df['Usage'] != 'Training'])
-    normal_training_data = FaceDataset(train_images, train_labels)
-    augmented_training_data = FaceDataset(train_images, train_labels, True)
+    training_data = FaceDataset(train_images, train_labels)
     testing_data = FaceDataset(test_images, test_labels)
     training_total = dataset_details("Training", train_labels)
     testing_total = dataset_details("Testing", test_labels)
-    normal_training = DataLoader(normal_training_data, batch_size=batch, shuffle=True)
-    augmented_training = DataLoader(augmented_training_data, batch_size=batch, shuffle=True)
+    # Generate sample images of the data.
     testing = DataLoader(testing_data, batch_size=batch, shuffle=True)
-    # Load a model if flagged to do so.
-    if load:
-        # If a model does not exist to load decide to generate a new model instead.
-        if not os.path.exists(f"{os.getcwd()}/Models/{name}/Model.pt"):
-            print(f"Model '{name}' does not exist to load.")
-            return
-        try:
-            model = NeuralNetwork(name)
-            saved = torch.load(f"{os.getcwd()}/Models/{name}/Model.pt")
-            model.load_state_dict(saved['Best'])
-        except:
-            print("Model to load has different structure than 'model_builder'.py, cannot load.")
-            return
-        train_accuracy = test(model, batch, normal_training)
-        start = time.time_ns()
-        accuracy = test(model, batch, testing)
-        end = time.time_ns()
-        inference_time = ((end - start) / testing_total) / 1e+6
-        print(f"Testing Accuracy = {accuracy}%\n"
-              f"Training Accuracy = {train_accuracy}%\n"
-              f"Average Inference Time: {inference_time} ms")
-        return
-    # Otherwise, train a model.
-    model = NeuralNetwork(name)
-    best_model = model.state_dict()
-    summary(model, input_size=(1, 48, 48))
+    training_data.set_transform(1)
+    training = DataLoader(training_data, batch_size=batch, shuffle=True)
+    data_image(training, 'Augmented')
+    data_image(testing, 'Normal')
     if batch < 1:
         batch = 1
-    # Check if an existing model of the same name exists.
-    if os.path.exists(f"{os.getcwd()}/Models/{name}/Model.pt"):
-        try:
-            print(f"Model '{name}' already exists, attempting to load to continue training...")
-            saved = torch.load(f"{os.getcwd()}/Models/{name}/Model.pt")
-            best_model = saved['Best']
-            model.load_state_dict(saved['Training'])
-            model.optimizer.load_state_dict(saved['Optimizer'])
-            epoch = saved['Epoch']
-            no_change = saved['No Change']
-            best_accuracy = saved['Best Accuracy']
-            loss = saved['Loss']
-            augmented = saved['Augmented']
-            print(f"Continuing training for '{name}' from epoch {epoch} with batch size {batch} for {epochs} epochs.")
-        except:
-            print("Unable to load training data, exiting.")
-            return
-    else:
-        loss = -1
-        epoch = 1
-        no_change = 0
-        augmented = False
-        print(f"Starting training with batch size {batch} for {epochs} epochs.")
-    # Ensure folder to save models exists.
-    if not os.path.exists(f"{os.getcwd()}/Models"):
-        os.mkdir(f"{os.getcwd()}/Models")
-    if not os.path.exists(f"{os.getcwd()}/Models/{name}"):
-        os.mkdir(f"{os.getcwd()}/Models/{name}")
-    start = time.time_ns()
-    accuracy = test(model, batch, testing)
-    end = time.time_ns()
-    inference_time = ((end - start) / testing_total) / 1e+6
-    # Generate sample images of the data.
-    data_image(augmented_training, name, 'Sample Augmented')
-    data_image(testing, name, 'Sample Unchanged')
-    # If new training, write initial files.
-    if epoch == 1:
-        best_accuracy = accuracy
-        f = open(f"{os.getcwd()}/Models/{name}/Training.csv", "w")
-        f.write("Epoch,Loss,Accuracy,Best Accuracy,Augmented")
-        f.close()
-        # Create a graph of the model.
-        try:
-            y = model.forward(to_tensor(iter(testing).__next__()[0]))
-            make_dot(y.mean(), params=dict(model.named_parameters())).render(f"{os.getcwd()}/Models/{name}/Graph", format="png")
-            # Makes redundant file, remove it.
-            os.remove(f"{os.getcwd()}/Models/{name}/Graph")
-        except:
-            "Could not generate graph image, make sure you have 'Graphviz' installed."
-    train_accuracy = test(model, batch, normal_training)
-    trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    write_parameters(name, best_accuracy, train_accuracy, inference_time, trainable_parameters, 0, augmented)
-    save(name, model, best_model, epoch, no_change, best_accuracy, loss, augmented)
-    # Train for set epochs.
-    while True:
-        if epoch > epochs:
-            print("Training finished.")
-            return
-        augmented_message = "Augmented" if augmented else "Unchanged"
-        loss_message = "Loss = " + (f"{loss:.4}" if epoch > 1 else "N/A")
-        improvement = "Improvement " if no_change == 0 else f"{no_change} Epochs No Improvement "
-        msg = f"Epoch {epoch}/{epochs} | {augmented_message} | {loss_message} | Accuracy = {accuracy:.4}% | Best = {best_accuracy:.4}% | {improvement}"
-        # Reset loss every epoch.
-        loss = 0
-        # Switch to training mode.
-        model.train()
-        dataset = augmented_training if augmented else normal_training
-        for raw_image, raw_label in tqdm(dataset, msg):
-            image, label = to_tensor(raw_image), to_tensor(raw_label)
-            loss += model.optimize(image, label)
-        loss /= training_total
-        # Check how well the newest epoch performs.
-        start = time.time_ns()
-        accuracy = test(model, batch, testing)
-        end = time.time_ns()
-        # Check if this is the new best model.
-        if accuracy > best_accuracy:
+    # Train models.
+    for name in ["Simple", "ResNet"]:
+        for mode in ["Normal", "Hybrid", "Gradual"]:
+            model = NeuralNetwork(name)
             best_model = model.state_dict()
-            best_accuracy = accuracy
+            # Check if an existing model of the same name exists.
+            if os.path.exists(os.path.join(os.getcwd(), "Models", f"{name}-{mode}.pt")):
+                try:
+                    saved = torch.load(os.path.join(os.getcwd(), "Models", f"{name}-{mode}.pt"))
+                    epoch = saved['Epoch']
+                    best_accuracy = saved['Best Accuracy']
+                    # If already done training this joint, skip to the next.
+                    if epoch >= epochs:
+                        print(f"{name} | {mode} | Accuracy = {best_accuracy}%")
+                        continue
+                    best_model = saved['Best']
+                    model.load_state_dict(saved['Training'])
+                    model.optimizer.load_state_dict(saved['Optimizer'])
+                    loss = saved['Loss']
+                    print(f"Continuing training for {name} on mode {mode} from epoch {epoch} with batch size {batch} for {epochs} epochs.")
+                except:
+                    print("Unable to load training data, exiting.")
+                    return
+            else:
+                loss = -1
+                epoch = 1
+                print(f"Starting training for {name} on mode {mode} with batch size {batch} for {epochs} epochs.")
+            # Ensure folder to save models exists.
+            if not os.path.exists(os.path.join(os.getcwd(), "Models")):
+                os.mkdir(os.path.join(os.getcwd(), "Models"))
+            start = time.time_ns()
+            accuracy = test(model, batch, testing)
+            end = time.time_ns()
             inference_time = ((end - start) / testing_total) / 1e+6
-            no_change = 0
-            train_accuracy = test(model, batch, normal_training)
-            write_parameters(name, best_accuracy, train_accuracy, inference_time, trainable_parameters, epoch, augmented)
-        else:
-            no_change += 1
-        # Save data.
-        f = open(f"{os.getcwd()}/Models/{name}/Training.csv", "a")
-        f.write(f"\n{epoch},{loss},{accuracy},{best_accuracy},{1 if augmented else 0}")
-        f.close()
-        epoch += 1
-        # Switch to augmented data if training progress has stalled.
-        if not augmented and no_change >= wait:
-            augmented = True
-            model.load_state_dict(best_model)
-            model.optimizer = model_builder.define_optimizer(model)
-        save(name, model, best_model, epoch, no_change, best_accuracy, loss, augmented)
+            # If new training, write initial files.
+            if epoch == 1:
+                best_accuracy = accuracy
+                f = open(os.path.join(os.getcwd(), "Models", f"{name}-{mode}.csv"), "w")
+                f.write("Epoch,Loss,Accuracy,Best Accuracy")
+                f.close()
+            train_accuracy = test(model, batch, training)
+            trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+            write_parameters(name, mode, best_accuracy, train_accuracy, inference_time, trainable_parameters, 0)
+            save(name, mode, model, best_model, epoch, best_accuracy, loss)
+            # Train for set epochs.
+            while True:
+                if epoch > epochs:
+                    print(f"{name} | {mode} | Accuracy = {best_accuracy}%")
+                    break
+                loss_message = "Loss = " + (f"{loss:.4}" if epoch > 1 else "N/A")
+                msg = f"{name} | {mode} | Epoch {epoch}/{epochs} | {loss_message} | Accuracy = {accuracy:.4}% | Best = {best_accuracy:.4}%"
+                # Reset loss every epoch.
+                loss = 0
+                # Switch to training mode.
+                model.train()
+                if mode == "Normal":
+                    training_data.set_transform(-1)
+                elif mode == "Hybrid":
+                    training_data.set_transform(1 if epoch >= epochs / 2 else -1)
+                else:
+                    training_data.set_transform((epoch - 1) / float(epochs - 1))
+                training = DataLoader(training_data, batch_size=batch, shuffle=True)
+                for raw_image, raw_label in tqdm(training, msg):
+                    image, label = to_tensor(raw_image), to_tensor(raw_label)
+                    loss += model.optimize(image, label)
+                loss /= training_total
+                # Check how well the newest epoch performs.
+                start = time.time_ns()
+                accuracy = test(model, batch, testing)
+                end = time.time_ns()
+                # Check if this is the new best model.
+                if accuracy > best_accuracy:
+                    best_model = model.state_dict()
+                    best_accuracy = accuracy
+                    inference_time = ((end - start) / testing_total) / 1e+6
+                    train_accuracy = test(model, batch, training)
+                    write_parameters(name, mode, best_accuracy, train_accuracy, inference_time, trainable_parameters, epoch)
+                # Save data.
+                f = open(os.path.join(os.getcwd(), "Models", f"{name}-{mode}.csv"), "a")
+                f.write(f"\n{epoch},{loss},{accuracy},{best_accuracy}")
+                f.close()
+                epoch += 1
+                save(name, mode, model, best_model, epoch, best_accuracy, loss)
 
 
 if __name__ == '__main__':
     try:
         desc = "Face Expression Recognition Deep Learning\n-----------------------------------------"
         parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=desc)
-        parser.add_argument("model", type=str, help="Name of the model, options are \"simple\", \"expanded\", or \"resnet\"")
         parser.add_argument("-e", "--epoch", type=int, help="The number of epochs to train for.", default=100)
         parser.add_argument("-b", "--batch", type=int, help="Training and testing batch size.", default=64)
-        parser.add_argument("-w", "--wait", type=int, help="The number of epochs to wait before switching to augmented data if there are no network improvements.", default=20)
-        parser.add_argument("-t", "--test", help="Load and test the model with the given name without performing any training.", action="store_true")
         a = vars(parser.parse_args())
-        main(a["model"], a["epoch"], a["batch"], a["test"], a["wait"])
+        main(a["epoch"], a["batch"])
     except KeyboardInterrupt:
         print("Training Stopped.")
     except torch.cuda.OutOfMemoryError:

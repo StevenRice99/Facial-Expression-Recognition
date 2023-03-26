@@ -22,29 +22,22 @@ This is a solution for the [Kaggle Challenges in Representation Learning: Facial
    2. In the root of your project directory, extract the downloaded "Models.zip" so you have a folder named "Models".
 5. Install required Python packages. If unfamiliar with Python, "pip" comes with standard Python installations, and you can run "pip *package*" to install a package.
    1. [PyTorch](https://pytorch.org "PyTorch") and TorchVision.
-      1. It is recommended you visit [PyTorch's get started page](https://pytorch.org/get-started/locally "PyTorch Get Started") which will allow you to select to install CUDA support if you have an Nvidia GPU. This will give you a command you can copy and run to install PyTorch, TorchVision, and TorchAudio, but feel free to remove TorchAudio from the command as it is not needed. Check which version of CUDA your Nvidia GPU supports.
+      1. It is recommended you visit [PyTorch's get started page](https://pytorch.org/get-started/locally "PyTorch Get Started") which will allow you to select to install CUDA support if you have an Nvidia GPU. This will give you a command you can copy and run to install PyTorch, TorchVision, and TorchAudio, but feel free to remove TorchAudio from the command as it is not needed. Check which version of CUDA your Nvidia GPU supports. You can check your CUDA version by running "nvidia-smi" from the command line.
       2. When running the script, a message will be output to the console if it is using CUDA.
    2. The remaining packages can be installed via "pip *package*" in the console:
       1. [numpy](https://numpy.org "numpy")
       2. [pandas](https://pandas.pydata.org "pandas")
-      3. [torchsummary](https://pypi.org/project/torchsummary "torchsummary")
-      4. [torchviz](https://pypi.org/project/torchviz "torchviz")
       5. [tqdm](https://github.com/tqdm/tqdm "tqdm")
-6. Install [Graphviz](https://graphviz.org "Graphviz") so the Python script can generate a graph of neural networks.
 
 # Usage
 
-1. Run "main.py" with the name of the model. Options are "simple", "expanded", or "resnet", with the following optional parameters:
+1. Run "main.py" with the following optional parameters:
    1. -e, --epoch - The number of epochs to train for. Defaults to 100.
    2. -b, --batch - Training and testing batch size. Defaults to 64.
-   3. -w, --wait - The number of epochs to wait before switching to augmented data if there are no network improvements. Defaults to 20.
-   4. -t, --test - Load and test the model with the given name without performing any training.
-2. Once done, a folder with the given name can be found in the "Models" folder which contains the following:
-   1. "Model.pt" which contains the best weights and bias saved which can be loaded for inference as well as to continue training later.
-   2. "Details.txt" which contains an overview of the model. 
-   3. "Training.csv" which contains the loss and accuracy for each training epoch.
-   4. "Graph.png" which displays the network architecture.
-   5. "Sample Unchanged.png" and "Sample Augmented.png" which show sample batches of the unchanged and augmented data.
+2. Once done, inside the "Models" folder, files with their given name and training modes can be found as follows:
+   1. PT file which contains the best weights and bias saved which can be loaded for inference as well as to continue training later.
+   2. TXT file which contains an overview of the model. 
+   3. CSV file which contains the loss and accuracy for each training epoch.
 
 # References
 
