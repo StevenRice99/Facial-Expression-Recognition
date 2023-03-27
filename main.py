@@ -178,10 +178,9 @@ def test(model, batch: int, dataloader):
     # Count how many are correct.
     correct = 0
     # Loop through all data.
-    for raw_image, raw_label in dataloader:
-        image, label = to_tensor(raw_image), to_tensor(raw_label)
+    for image, label in dataloader:
         # If properly predicted, count it as correct.
-        correct += (label == model.predict(image)).sum()
+        correct += (to_tensor(label) == model.predict(to_tensor(image))).sum()
     # Calculate the overall accuracy.
     return correct / (len(dataloader) * batch) * 100
 
@@ -258,7 +257,7 @@ def main(epochs: int, batch: int):
         batch = 1
     # Train models.
     for name in ["Simple", "ResNet"]:
-        for mode in ["Normal", "Hybrid", "Gradual"]:
+        for mode in ["Normal", "Augmented", "Gradual"]:
             model = NeuralNetwork(name)
             best_model = model.state_dict()
             # Check if an existing model of the same name exists.
@@ -301,6 +300,9 @@ def main(epochs: int, batch: int):
             write_parameters(name, mode, best_accuracy, train_accuracy, inference_time, trainable_parameters, 0)
             save(name, mode, model, best_model, epoch, best_accuracy, loss)
             # Train for set epochs.
+            if mode != "Gradual":
+                training_data.set_transform(-1 if mode == "Normal" else 1)
+                training = DataLoader(training_data, batch_size=batch, shuffle=True)
             while True:
                 if epoch > epochs:
                     print(f"{name} | {mode} | Accuracy = {best_accuracy}%")
@@ -311,16 +313,11 @@ def main(epochs: int, batch: int):
                 loss = 0
                 # Switch to training mode.
                 model.train()
-                if mode == "Normal":
-                    training_data.set_transform(-1)
-                elif mode == "Hybrid":
-                    training_data.set_transform(1 if epoch >= epochs / 2 else -1)
-                else:
+                if mode == "Gradual":
                     training_data.set_transform((epoch - 1) / float(epochs - 1))
-                training = DataLoader(training_data, batch_size=batch, shuffle=True)
-                for raw_image, raw_label in tqdm(training, msg):
-                    image, label = to_tensor(raw_image), to_tensor(raw_label)
-                    loss += model.optimize(image, label)
+                    training = DataLoader(training_data, batch_size=batch, shuffle=True)
+                for image, label in tqdm(training, msg):
+                    loss += model.optimize(to_tensor(image), to_tensor(label))
                 loss /= training_total
                 # Check how well the newest epoch performs.
                 start = time.time_ns()
