@@ -9,9 +9,8 @@ import torchvision.utils
 from torch import nn, optim
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
+from torchvision.models import resnet18, ResNet18_Weights
 from tqdm import tqdm
-
-import model_builder
 
 
 class FaceDataset(Dataset):
@@ -33,6 +32,12 @@ class FaceDataset(Dataset):
         self.transform = None
 
     def set_transform(self, percent: float):
+        """
+        Define the transform for the dataset.
+        :param percent: A value between 0 and 1 for what extent to apply the transformations.
+        :return: Nothing.
+        """
+        # If no 0, don't apply transformations.
         if percent <= 0:
             self.transform = None
             return
@@ -76,11 +81,93 @@ class NeuralNetwork(nn.Module):
         """
         super().__init__()
         # Load in defined parameters.
-        self.layers = model_builder.define_layers(name)
+        self.layers = NeuralNetwork.define_layers(name)
         self.loss = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(self.parameters())
         # Run on GPU if available.
         self.to(get_processing_device())
+
+    @staticmethod
+    def define_layers(name: str):
+        """
+        Build the layers of the neural network.
+        Convolutional Size =  (Size - Kernel + 2 * Padding) / Stride + 1
+        Pooling Size =        (Size + 2 * Padding - Kernel) / Stride + 1
+        Flatten Size =        Last Convolutional Out Channels * Size^2
+        :param name: The name of the model architecture to use.
+        :return: A sequential layer structure which has a 48x48 single channel starting input layer and a 7 final output layer.
+        """
+        return NeuralNetwork.resnet_network() if name == "ResNet" else NeuralNetwork.simple_network()
+
+    @staticmethod
+    def simple_network():
+        """
+        A network composing of several, decreasing in size convolutional layers.
+        :return: A simple CNN.
+        """
+        return nn.Sequential(
+            # First convolutional layer.
+            nn.Conv2d(1, 64, 3, padding=1),  # (48 - 3 + 2 * 1) / 1 + 1 = 48
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),  # (48 + 2 * 0 - 2) / 2 + 1 = 24
+            # Second convolutional layer.
+            nn.Conv2d(64, 64, 3, padding=1),  # (24 - 3 + 2 * 1) / 1 + 1 = 24
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),  # (24 + 2 * 0 - 2) / 2 + 1 = 12
+            # Third convolutional layer.
+            nn.Conv2d(64, 64, 3, padding=1),  # (12 - 3 + 2 * 1) / 1 + 1 = 12
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),  # (12 + 2 * 0 - 2) / 2 + 1 = 6
+            # Fourth convolutional layer.
+            nn.Conv2d(64, 64, 3, padding=1),  # (6 - 3 + 2 * 1) / 1 + 1 = 6
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),  # (6 + 2 * 0 - 2) / 2 + 1 = 3
+            # Append the final learning layers.
+            NeuralNetwork.final_layers()
+        )
+
+    @staticmethod
+    def resnet_network():
+        """
+        Model based on the ResNet18 architecture.
+        :return: A ResNet18 based model.
+        """
+        # ResNet18 network with pretrained weights.
+        resnet = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
+        return nn.Sequential(
+            # Prepare data to be fed into the ResNet18 model.
+            nn.AdaptiveAvgPool2d(224),
+            nn.Conv2d(1, 3, 3),
+            # Pass to ResNet18.
+            resnet,
+            # Append the final learning layers.
+            NeuralNetwork.final_layers()
+        )
+
+    @staticmethod
+    def final_layers():
+        """
+        The final linear learning layers of the models.
+        :return: Several linear learning and the final output layers.
+        """
+        return nn.Sequential(
+            # Flatten the output of the ResNet model and apply further processing.
+            nn.Flatten(),
+            # Automatically handle scaling the flattened layer into 64 neurons.
+            nn.Dropout(),
+            nn.LazyLinear(64),
+            nn.ReLU(),
+            # Second final learning layer.
+            nn.Dropout(),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            # Third final learning layer.
+            nn.Dropout(),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            # Final predictions layer.
+            nn.Linear(64, 7)
+        )
 
     def forward(self, image):
         """
@@ -102,7 +189,7 @@ class NeuralNetwork(nn.Module):
 
     def optimize(self, image, label):
         """
-        Optimize the neural network to fit the MNIST training data.
+        Optimize the neural network to fit the training data.
         :param image: The image as a proper tensor.
         :param label: The label of the image.
         :return: The network's loss on this prediction.
@@ -192,7 +279,6 @@ def prepare_data(data):
     :return: Images and labels ready for PyTorch.
     """
     images = numpy.zeros(shape=(len(data), 48, 48))
-    labels = numpy.array(list(map(int, data['emotion'])))
     # Break apart the string and resize it as a 48x48 image.
     for i, row in enumerate(data.index):
         image = numpy.fromstring(data.loc[row, 'pixels'], dtype=int, sep=' ')
@@ -202,10 +288,21 @@ def prepare_data(data):
     images = images.reshape((images.shape[0], 48, 48, 1))
     # Scale all color values between 0 and 1.
     images = images.astype('float32') / 255
-    return images, labels
+    return images, numpy.array(list(map(int, data['emotion'])))
 
 
 def save(name: str, mode: str, model, best_model, epoch: int, best_accuracy: float, loss: float):
+    """
+    Save to a PT file.
+    :param name: The name of the model architecture.
+    :param mode: The name of the training mode.
+    :param model: The model.
+    :param best_model: The best model state dict.
+    :param epoch: The current training epoch.
+    :param best_accuracy: The best accuracy that has been reached.
+    :param loss: The last training loss.
+    :return: Nothing.
+    """
     torch.save({
         'Best': best_model,
         'Training': model.state_dict(),
@@ -217,6 +314,16 @@ def save(name: str, mode: str, model, best_model, epoch: int, best_accuracy: flo
 
 
 def write_parameters(name: str, mode: str, best_accuracy: float, train_accuracy: float, inference_time: float, trainable_parameters: int, best_epoch: int):
+    """
+    Write key parameters to a text file.
+    :param name: The name of the model architecture.
+    :param mode: The name of the training mode.
+    :param best_accuracy: The best accuracy that has been reached.
+    :param train_accuracy: The training accuracy that has been reached.
+    :param inference_time: The average inference time.
+    :param trainable_parameters: The number of trainable parameters in the network.
+    :param best_epoch: The epoch which the best accuracy was reached on.
+    """
     parameters = open(f"{os.getcwd()}/Models/{name}-{mode}.txt", "w")
     parameters.write(f"Testing Accuracy: {best_accuracy}\n"
                      f"Training Accuracy: {train_accuracy}\n"
@@ -257,10 +364,9 @@ def main(epochs: int, batch: int):
         batch = 1
     # Train models.
     for name in ["Simple", "ResNet"]:
+        # Train each model on every training mode.
         for mode in ["Normal", "Augmented", "Gradual"]:
-            model = NeuralNetwork(name)
-            best_model = model.state_dict()
-            # Check if an existing model of the same name exists.
+            # Check if an existing model for this mode exists.
             if os.path.exists(os.path.join(os.getcwd(), "Models", f"{name}-{mode}.pt")):
                 try:
                     saved = torch.load(os.path.join(os.getcwd(), "Models", f"{name}-{mode}.pt"))
@@ -270,26 +376,31 @@ def main(epochs: int, batch: int):
                     if epoch >= epochs:
                         print(f"{name} | {mode} | Accuracy = {best_accuracy}%")
                         continue
-                    best_model = saved['Best']
+                    model = NeuralNetwork(name)
                     model.load_state_dict(saved['Training'])
                     model.optimizer.load_state_dict(saved['Optimizer'])
+                    best_model = saved['Best']
                     loss = saved['Loss']
                     print(f"Continuing training for {name} on mode {mode} from epoch {epoch} with batch size {batch} for {epochs} epochs.")
                 except:
                     print("Unable to load training data, exiting.")
                     return
+            # Create a new model if none already exists.
             else:
+                model = NeuralNetwork(name)
+                best_model = model.state_dict()
                 loss = -1
                 epoch = 1
                 print(f"Starting training for {name} on mode {mode} with batch size {batch} for {epochs} epochs.")
             # Ensure folder to save models exists.
             if not os.path.exists(os.path.join(os.getcwd(), "Models")):
                 os.mkdir(os.path.join(os.getcwd(), "Models"))
+            # Test the model.
             start = time.time_ns()
             accuracy = test(model, batch, testing)
             end = time.time_ns()
             inference_time = ((end - start) / testing_total) / 1e+6
-            # If new training, write initial files.
+            # If new training, write header for new CSV file.
             if epoch == 1:
                 best_accuracy = accuracy
                 f = open(os.path.join(os.getcwd(), "Models", f"{name}-{mode}.csv"), "w")
@@ -299,11 +410,13 @@ def main(epochs: int, batch: int):
             trainable_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
             write_parameters(name, mode, best_accuracy, train_accuracy, inference_time, trainable_parameters, 0)
             save(name, mode, model, best_model, epoch, best_accuracy, loss)
-            # Train for set epochs.
+            # If not on gradual mode, set the training data as it does not change.
             if mode != "Gradual":
                 training_data.set_transform(-1 if mode == "Normal" else 1)
                 training = DataLoader(training_data, batch_size=batch, shuffle=True)
+            # Loop training.
             while True:
+                # Output final result.
                 if epoch > epochs:
                     print(f"{name} | {mode} | Accuracy = {best_accuracy}%")
                     break
@@ -313,9 +426,11 @@ def main(epochs: int, batch: int):
                 loss = 0
                 # Switch to training mode.
                 model.train()
+                # If on gradual mode, increment the data augmentation.
                 if mode == "Gradual":
                     training_data.set_transform((epoch - 1) / float(epochs - 1))
                     training = DataLoader(training_data, batch_size=batch, shuffle=True)
+                # Train on the training data.
                 for image, label in tqdm(training, msg):
                     loss += model.optimize(to_tensor(image), to_tensor(label))
                 loss /= training_total
