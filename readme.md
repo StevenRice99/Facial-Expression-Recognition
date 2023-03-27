@@ -2,6 +2,14 @@
 
 This is a solution for the [Kaggle Challenges in Representation Learning: Facial Expression Recognition Challenge](https://www.kaggle.com/competitions/challenges-in-representation-learning-facial-expression-recognition-challenge "Kaggle Challenges in Representation Learning: Facial Expression Recognition Challenge") comparing normal, fully augmented, and a gradual addition of data augmentation during the training process across a simple CNN and a ResNet18 based model.
 
+![Normal Data](Data Normal.png "Normal Data")
+
+Normal Data Sample
+
+![Augmented Data](Data Augmented.png "Augmented Data")
+
+Fully Augmented Data Sample
+
 - [Setup](#setup "Setup")
 - [Usage](#usage "Usage")
 - [References](#references "References")
@@ -18,7 +26,7 @@ This is a solution for the [Kaggle Challenges in Representation Learning: Facial
    3. Extract "fer2013.tar.gz". You will likely need to do this twice unless the software you are using automatically recognizes it needs to be done twice, first to get to "fer2013.tar" and then extract it to get the folder "fer2013".
    4. Inside the folder "fer2013", copy the file "fer2013.csv" into the root of your project directory.
    5. Rename "fer2013.csv" to "Data.csv".
-4. Install required Python packages. If unfamiliar with Python, "pip" comes with standard Python installations, and you can run "pip *package*" to install a package.
+5. Install required Python packages. If unfamiliar with Python, "pip" comes with standard Python installations, and you can run "pip *package*" to install a package.
    1. [PyTorch](https://pytorch.org "PyTorch") and TorchVision.
       1. It is recommended you visit [PyTorch's get started page](https://pytorch.org/get-started/locally "PyTorch Get Started") which will allow you to select to install CUDA support if you have an Nvidia GPU. This will give you a command you can copy and run to install PyTorch, TorchVision, and TorchAudio, but feel free to remove TorchAudio from the command as it is not needed. Check which version of CUDA your Nvidia GPU supports. You can check your CUDA version by running "nvidia-smi" from the command line.
       2. When running the script, a message will be output to the console if it is using CUDA.
