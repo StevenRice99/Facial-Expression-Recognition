@@ -2,13 +2,13 @@
 
 This is a solution for the [Kaggle Challenges in Representation Learning: Facial Expression Recognition Challenge](https://www.kaggle.com/competitions/challenges-in-representation-learning-facial-expression-recognition-challenge "Kaggle Challenges in Representation Learning: Facial Expression Recognition Challenge") comparing normal, fully augmented, and a gradual addition of data augmentation during the training process across a simple CNN and a ResNet18 based model.
 
-![Normal Data](Data-Normal.png "Normal Data")
+| ![Normal Data](Data-Normal.png "Normal Data") | 
+|:--:| 
+| *Normal Data Sample* |
 
-Normal Data Sample
-
-![Augmented Data](Data-Augmented.png "Augmented Data")
-
-Fully Augmented Data Sample
+| ![Augmented Data](Data-Augmented.png "Augmented Data") | 
+|:--:| 
+| *Fully Augmented Data Sample* |
 
 - [Setup](#setup "Setup")
 - [Usage](#usage "Usage")
