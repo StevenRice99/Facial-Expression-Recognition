@@ -2,10 +2,10 @@ import argparse
 import os
 import time
 
-import numpy
-import pandas
+import numpy as np
 import torch
 import torchvision.utils
+from pandas import read_csv
 from torch import nn, optim
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
@@ -25,7 +25,7 @@ class FaceDataset(Dataset):
         :param labels: The labels parsed from the CSV.
         """
         self.images = torch.tensor(images, dtype=torch.float32)
-        # Rearrange axis, so they are in proper input order and appear visually upright.
+        # Rearrange axis to get them in proper input order and appear visually upright.
         self.images = torch.swapaxes(self.images, 1, 3)
         self.images = torch.swapaxes(self.images, 2, 3)
         self.labels = torch.tensor(labels, dtype=torch.int)
@@ -278,12 +278,12 @@ def prepare_data(data):
     :param data: The data frame loaded from the CSV with emotions and pixel data.
     :return: Images and labels ready for PyTorch.
     """
-    images = numpy.zeros(shape=(len(data), 48, 48))
+    images = np.zeros(shape=(len(data), 48, 48))
     # Break apart the string and resize it as a 48x48 image.
     for i, row in enumerate(data.index):
-        images[i] = numpy.reshape(numpy.fromstring(data.loc[row, 'pixels'], dtype=int, sep=' '), (48, 48))
+        images[i] = np.reshape(np.fromstring(data.loc[row, 'pixels'], dtype=int, sep=' '), (48, 48))
     # Ensure single channel added for proper inputs and scale all color values between 0 and 1.
-    return (images.reshape((images.shape[0], 48, 48, 1))).astype('float32') / 255, numpy.array(list(map(int, data['emotion'])))
+    return (images.reshape((images.shape[0], 48, 48, 1))).astype('float32') / 255, np.array(list(map(int, data['emotion'])))
 
 
 def save(name: str, mode: str, model, best_model, epoch: int, best_accuracy: float, loss: float):
@@ -319,13 +319,13 @@ def write_parameters(name: str, mode: str, best_accuracy: float, train_accuracy:
     :param trainable_parameters: The number of trainable parameters in the network.
     :param best_epoch: The epoch which the best accuracy was reached on.
     """
-    parameters = open(f"{os.getcwd()}/Models/{name}-{mode}.txt", "w")
-    parameters.write(f"Testing Accuracy: {best_accuracy}\n"
-                     f"Training Accuracy: {train_accuracy}\n"
-                     f"Average Inference Time: {inference_time} ms\n"
-                     f"Trainable Parameters: {trainable_parameters}\n"
-                     f"Best Epoch: {best_epoch}")
-    parameters.close()
+    f = open(f"{os.getcwd()}/Models/{name}-{mode}.txt", "w")
+    f.write(f"Testing Accuracy: {best_accuracy}\n"
+            f"Training Accuracy: {train_accuracy}\n"
+            f"Average Inference Time: {inference_time} ms\n"
+            f"Trainable Parameters: {trainable_parameters}\n"
+            f"Best Epoch: {best_epoch}")
+    f.close()
 
 
 def main(epochs: int, batch: int):
@@ -335,26 +335,32 @@ def main(epochs: int, batch: int):
     :param batch: The batch size.
     :return: Nothing.
     """
-    print(f"Face Expression Recognition Deep Learning")
+    print(f"Facial Expression Recognition Deep Learning")
     print(f"Running on GPU with CUDA {torch.version.cuda}." if torch.cuda.is_available() else "Running on CPU.")
     if not os.path.exists(os.path.join(os.getcwd(), "Data.csv")):
         print("Data.csv missing, visit https://github.com/StevenRice99/Facial-Expression-Recognition#setup for instructions.")
         return
     # Setup datasets.
     print("Loading data...")
-    df = pandas.read_csv(f"{os.getcwd()}/Data.csv")
+    # Load CSV.
+    df = read_csv(os.path.join(os.getcwd(), "Data.csv"))
+    # Split the training and testing data and convert to proper format.
     train_images, train_labels = prepare_data(df[df['Usage'] == 'Training'])
     test_images, test_labels = prepare_data(df[df['Usage'] != 'Training'])
+    # Convert into datasets.
     training_data = FaceDataset(train_images, train_labels)
     testing_data = FaceDataset(test_images, test_labels)
+    # Display the details and get the length of each dataset.
     training_total = dataset_details("Training", train_labels)
     testing_total = dataset_details("Testing", test_labels)
-    # Generate sample images of the data.
-    testing = DataLoader(testing_data, batch_size=batch, shuffle=True)
+    # Setup initial data loaders, augmenting the training to start so a sample image can be generated.
     training_data.set_transform(1)
     training = DataLoader(training_data, batch_size=batch, shuffle=True)
+    testing = DataLoader(testing_data, batch_size=batch, shuffle=True)
+    # Generate sample images.
     data_image(training, 'Augmented')
     data_image(testing, 'Normal')
+    # Ensure batch size is valid.
     if batch < 1:
         batch = 1
     # Train models.
@@ -415,6 +421,7 @@ def main(epochs: int, batch: int):
                 if epoch > epochs:
                     print(f"{name} | {mode} | Accuracy = {best_accuracy}%")
                     break
+                # Prepare the output message.
                 loss_message = "Loss = " + (f"{loss:.4}" if epoch > 1 else "N/A")
                 msg = f"{name} | {mode} | Epoch {epoch}/{epochs} | {loss_message} | Accuracy = {accuracy:.4}% | Best = {best_accuracy:.4}%"
                 # Reset loss every epoch.
@@ -450,8 +457,7 @@ def main(epochs: int, batch: int):
 
 if __name__ == '__main__':
     try:
-        desc = "Face Expression Recognition Deep Learning\n-----------------------------------------"
-        parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=desc)
+        parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description="Facial Expression Recognition Deep Learning")
         parser.add_argument("-e", "--epoch", type=int, help="The number of epochs to train for.", default=100)
         parser.add_argument("-b", "--batch", type=int, help="Training and testing batch size.", default=64)
         a = vars(parser.parse_args())
