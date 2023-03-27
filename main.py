@@ -248,8 +248,8 @@ def data_image(dataloader, title: str):
     :param title: The title to give the image.
     :return: Nothing.
     """
-    if not os.path.exists(os.path.join(os.getcwd(), f"Data {title}.png")):
-        torchvision.utils.save_image(torchvision.utils.make_grid(iter(dataloader).__next__()[0]), os.path.join(os.getcwd(), f"Data {title}.png"))
+    if not os.path.exists(os.path.join(os.getcwd(), f"Data-{title}.png")):
+        torchvision.utils.save_image(torchvision.utils.make_grid(iter(dataloader).__next__()[0]), os.path.join(os.getcwd(), f"Data-{title}.png"))
 
 
 def test(model, batch: int, dataloader):
