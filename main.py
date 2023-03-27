@@ -248,8 +248,8 @@ def data_image(dataloader, title: str):
     :param title: The title to give the image.
     :return: Nothing.
     """
-    if not os.path.exists(os.path.join(os.getcwd(), f"{title}.png")):
-        torchvision.utils.save_image(torchvision.utils.make_grid(iter(dataloader).__next__()[0]), os.path.join(os.getcwd(), f"{title}.png"))
+    if not os.path.exists(os.path.join(os.getcwd(), f"Data {title}.png")):
+        torchvision.utils.save_image(torchvision.utils.make_grid(iter(dataloader).__next__()[0]), os.path.join(os.getcwd(), f"Data {title}.png"))
 
 
 def test(model, batch: int, dataloader):
@@ -281,14 +281,9 @@ def prepare_data(data):
     images = numpy.zeros(shape=(len(data), 48, 48))
     # Break apart the string and resize it as a 48x48 image.
     for i, row in enumerate(data.index):
-        image = numpy.fromstring(data.loc[row, 'pixels'], dtype=int, sep=' ')
-        image = numpy.reshape(image, (48, 48))
-        images[i] = image
-    # Ensure single channel added for proper inputs.
-    images = images.reshape((images.shape[0], 48, 48, 1))
-    # Scale all color values between 0 and 1.
-    images = images.astype('float32') / 255
-    return images, numpy.array(list(map(int, data['emotion'])))
+        images[i] = numpy.reshape(numpy.fromstring(data.loc[row, 'pixels'], dtype=int, sep=' '), (48, 48))
+    # Ensure single channel added for proper inputs and scale all color values between 0 and 1.
+    return (images.reshape((images.shape[0], 48, 48, 1))).astype('float32') / 255, numpy.array(list(map(int, data['emotion'])))
 
 
 def save(name: str, mode: str, model, best_model, epoch: int, best_accuracy: float, loss: float):
