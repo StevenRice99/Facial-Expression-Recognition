@@ -373,7 +373,7 @@ def main(epochs: int, batch: int):
                     saved = torch.load(os.path.join(os.getcwd(), "Models", f"{name}-{mode}.pt"))
                     epoch = saved['Epoch']
                     best_accuracy = saved['Best Accuracy']
-                    # If already done training this joint, skip to the next.
+                    # If already done training this model, skip to the next.
                     if epoch >= epochs:
                         print(f"{name} | {mode} | Accuracy = {best_accuracy}%")
                         continue
